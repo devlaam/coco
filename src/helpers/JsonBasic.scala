@@ -1,0 +1,790 @@
+package helpers
+
+
+import scala.language.postfixOps
+import play.api.libs.json._
+
+
+object JsonBasic 
+{ import JsonLib._
+  import JsonExtra._
+  
+  implicit class JsonOps(val js: JsValue) extends AnyVal 
+  { 
+    
+    /**
+     * Use the exclamation mark to quickly convert to a JsValues for further processing.
+     * toJvl is the accompaning method.
+     */
+    def unary_! = toJvl
+    def toJvl   = JsValues(List(js))   
+    
+    /** TO TEST
+     *  Test is the JsValue is empty. Arrays, Objects and strings can be empty.
+     *  In these cases the have no keys, no elements of no chars respectively.
+     *  JsUndefined and JsNull are also defined to be empty, for they contain 
+     *  has no processable content. Any value of JsBoolean or JsNumber is 
+     *  considered filled. 
+     *    val b: Boolean = jsValue.isEmpty
+     *  If a jsValue is not empty, it is filled.
+     */
+    def |?> = isFilled
+    def isEmpty = 
+    { js match 
+      { case  JsArray(seq)  => seq.isEmpty 
+        case  JsObject(seq) => seq.isEmpty
+        case  JsString(s)   => s.isEmpty
+        case  JsNumber(s)   => false
+        case  JsBoolean(s)  => false
+        case  _             => true } } 
+    def isFilled = !isEmpty 
+
+    /** TO TEST
+     * Check if an JsOject or JsArray contains a particular field of value:
+     *   val b: Boolean = jsValue.contains(Json.parse"""{ "name": "klaas", "age": 23}""")
+     * for simple types like JsString equality is tested
+     */    
+    def |?>(jv: JsValue) = contains(jv)
+    def contains(jv: JsValue) = 
+    { js match 
+      { case  JsObject(seq) => seq.exists( { case (k,v) => (v == jv) } ) 
+        case  JsArray(seq)  => seq.contains(jv) 
+        case  _ => js == jv } } 
+    
+    /** TO TEST
+     * Check if an JsOject contains a particular key :
+     *   val b: Boolean = jsValue.contains("id")
+     * for other types the result is always false
+     */
+    def |?>(s: String) = hasKey(s)
+    def hasKey(s: String) = 
+    { js match 
+      { case  JsObject(seq) => seq.exists( { case (k,v) => (k == s) } ) 
+        case  _ => false } } 
+    
+    /** TO TEST
+     * Check if an JsOject contains a particular key value pair :
+     *   val b: Boolean = jsValue.contains("id"->"kees")
+     * for other types the result is always false
+     */
+    def |?>(kv: PairJ) = hasPair(kv)
+    def hasPair(kv: PairJ) = 
+    { js match 
+      { case  JsObject(seq) => seq.exists( { case (k,v) => (k == kv._1 && v == kv._2) } ) 
+        case  _ => false } } 
+
+    /** TO TEST
+     * Extract the result of JsValue, use the default if the types do not match, thus
+     * json |> "" gives the string if json is JsString and "" otherwise. The default
+     * alsp select the result type. Without an default the result is JsValue. (To be
+     * compatible with JsValues)
+     * Operator equivalent for .to[T], use
+     *   val s: String = jsValue |>  
+     *   val s: String = jsValue |> "?"
+     * Note: () are needed to be able to use postfix operators after this operator. 
+     */ 
+    def |>(): JsValue = js
+    def toJv: JsValue = js
+    
+    /** TO TEST
+     * Convert JsValue to a chosen type, specifying a default value.
+     *   val s: String = jsValue.to[String]  
+     *   val s: String = jsValue.to[String]("?") 
+     */
+    def |>[T](dflt: T)(implicit fjs: Reads[T]): T = js.to[T](dflt)    
+    def to[T](dflt: T)(implicit fjs: Reads[T]): T = 
+    { fjs.reads(js) match
+      { case (JsSuccess(jss, _)) => jss 
+              case _ => dflt } } 
+
+    /**
+     * Json.stringify make literal strings (with "") whereas the impicit read does not
+     * turn a number into a string, we need something in between, a good old toStr method.
+     * For objects and arrays we use stringify, but this method is not meant to be used
+     * for these types. Note, toString on JsValue's is implemented as stringify.
+     */
+    def toStr: String = 
+    { js match
+      { case JsString(s)    => s 
+        case JsNumber(n)    => n.toString 
+        case JsBoolean(b)   => b.toString
+        case JsNull         => "null"
+        case _              => Json.stringify(js) } }
+ 
+    
+    
+    private def listHelper[T](seq: Seq[JsValue], succ: (List[T],T) => List[T], fail: List[T] => List[T])(implicit fjs: Reads[T]): List[T] =
+    { seq.foldLeft(List[T]())( 
+      { case (i,j) =>
+        { fjs.reads(j) match 
+          { case JsSuccess(jss, _) => succ(i,jss) 
+            case _ => fail(i) } } } ) }
+    
+    /** MINIMALLY TESTED
+     * Extract the keys from an object into a list of strings. Note
+     * keys may appear twice. Note that the sequence of keys may
+     * not be stable on external (play) manipulation. Within this 
+     * framework the order is strictly preserved, but cannot be manipulated
+     */
+    def |&>(implicit fjs: Reads[String]): List[String] = toKeyList(fjs)
+    def toKeyList(implicit fjs: Reads[String]): List[String] = 
+    { js match
+      { case JsObject(seq) => seq.map(_._1).toList
+        case _ => List[String]() } } 
+
+    /** MINIMALLY TESTED
+     * Convert JsValue to a list of a chosen type, specifying a default value.
+     * Any element in the list not of the type is removed by the default.
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *           
+     *  json | "array" ||> "?"    gives  List("1","2","3")        
+     *  json | "object" ||> 0     gives  List(1,2,3)        
+     *  json | "object" |!> 2     gives  List(1,3)        
+     *  json | "membs"  | 0 ||&>  gives  List("name : Jan","age : 23", "id : true")        
+     *                         
+     */
+    def ||>(): List[JsValue] = js.toValList[JsValue]
+    def toValList[T](implicit fjs: Reads[T]): List[T] = 
+    { def succ(l:List[T],v:T) = l:+v
+      def fail(l:List[T]) = l
+      js match
+            { case JsObject(seq) => listHelper(seq.map(_._2),succ,fail)(fjs)
+              case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
+              case _ => List[T]() } } 
+    
+    def ||>[T](dflt: T)(implicit fjs: Reads[T]): List[T] = js.toValList[T](dflt)(fjs)
+    def toValList[T](dflt: T)(implicit fjs: Reads[T]): List[T] = 
+    { def succ(l:List[T],v:T) = l:+v
+      def fail(l:List[T]) = l:+dflt
+      js match
+	    { case JsObject(seq) => listHelper(seq.map(_._2),succ,fail)(fjs)
+	      case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
+	      case _ => List[T]() } } 
+
+    def |!>[T](excl: T)(implicit fjs: Reads[T]): List[T] = js.toValFilteredList[T](excl)(fjs)
+    def toValFilteredList[T](excl: T)(implicit fjs: Reads[T]): List[T] = 
+    { def succ(l:List[T],v:T) = if (v != excl) l:+v else l
+      def fail(l:List[T]) = l
+      js match
+      { case JsObject(seq) => listHelper(seq.map(_._2),succ,fail)(fjs)
+        case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
+        case _ => List[T]() } } 
+    
+    def ||&>(implicit fjs: Reads[String]): List[String] = toKeyValList(fjs)
+    def toKeyValList(implicit fjs: Reads[String]): List[String] = 
+    { js match
+      { case JsObject(seq) => seq.map( { case (k,js) => k+" : "+ js.toStr } ).toList
+        case _ => List[String]() } } 
+        
+    
+    /**  MINIMALLY TESTED
+     * filterMap is used to transform an array into an object, depending on the values
+     * in the array. So
+     *
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json  | "membs" |!*> ( _|"name",  _|"age", _|"id" |> false )  gives  Map("Jan"->23, "Piet"->43)
+     */
+    def |!*>(key: JsValue=>JsValue, value: JsValue=>JsValue, filter: JsValue=>Boolean): Map[String,String] = toMapSS(js.filterMap(key,value,filter))  
+    def |!*(key: JsValue=>JsValue, value: JsValue=>JsValue, filter: JsValue=>Boolean): Map[JsValue,JsValue] = js.filterMap(key,value,filter) 
+    def filterMap(key: JsValue=>JsValue, value: JsValue=>JsValue, filter: JsValue=>Boolean): Map[JsValue,JsValue] = 
+    { js match
+      { case JsArray(seq) => seq.foldLeft(Map[JsValue,JsValue]())( (mp,js) => if (filter(js)) mp + (key(js)->value(js)) else mp )
+        case _ => Map[JsValue,JsValue]() } }
+
+    /**  MINIMALLY TESTED
+     * Constructs a map of an JsArray of jsObjects, where the keys are the
+     * values specified by the keykey parameter, and the values are 
+     * specified by valkey. JsObjects that do not contain both keys are
+     * skipped, Use like
+     *   val s: Map[JsValue,JsValue] = jsValue.toPeeledMap("_id","name") 
+     * or covert them to something more recognizable:
+     *   val s: Map[String,String] = jsValue.toPSSMap[String]("?") 
+     *   
+     */
+   def |^*>(keykey: String, valkey: String): Map[String,String] = toMapSS(js.peelMap(keykey,valkey))
+   def |^*(keykey: String, valkey: String): Map[JsValue,JsValue] = js.peelMap(keykey,valkey)
+   def peelMap(keykey: String, valkey: String): Map[JsValue,JsValue] = 
+	  { js match
+	    { case JsArray(seq) => seq.foldLeft(Map[JsValue,JsValue]())( 
+	      { case (mp,JsObject(jol)) =>
+	        { val jom = jol.toMap
+	          (jom.get(keykey),jom.get(valkey))  match
+	          { case (Some(kkr),Some(vkr)) => mp + (kkr->vkr) 
+      	      case _ => mp } }
+	        case (mp,_) => mp } )
+	      case _ => Map[JsValue,JsValue]() } }   
+      
+    /**  MINIMALLY TESTED
+     * Construct an array of JsValues by selecting those values corresponding
+     * to the keys in objects of the originating JsArray. To obtain a list[T]
+     * of all values use: peel(key).toList[String]. It sort of 'lifts the JsArray 
+     * one 'up'. Use like
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "membs" |^ name  gives  ["Jan","Piet","Klaas"]    
+     */
+    def |^ (key: String): JsValue = js.peel(key) 
+    def peel(key: String): JsArray = 
+    { js match
+      { case JsArray(seq) => seq.foldLeft(JsArray(Nil))( 
+        { case (li,JsObject(jo)) => 
+          { jo.toMap get(key)  match
+            { case Some(jvs) => li :+ jvs 
+              case None => li } }
+          case (li,_)  => li } )
+        case _ => JsArray(Nil) } } 
+    
+
+    /**   MINIMALLY TESTED
+     * Construct an JsObject of JsValues by selecting those values corresponding
+     * to the keys in objects of the originating JsArray. The values obtained by 
+     * keykey are plainly converted to String. Use like
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "membs" |^ ("name","age")  gives  {"Jan":23,"Piet":43,"Klaas":19}   
+     */
+    def |^ (keykey: String, valkey: String): JsValue =   js.peel(keykey,valkey)  
+    def peel(keykey: String, valkey: String): JsObject = 
+    { JsObject(js match
+      { case JsArray(seq) => seq.foldLeft(Seq[PairJ]())( 
+        { case (mp,JsObject(jol)) =>
+          { val jom = jol.toMap
+            (jom.get(keykey),jom.get(valkey))  match
+            { case (Some(kkr),Some(vkr)) => mp :+ (kkr.toStr,vkr)
+              case _ => mp } }
+          case (mp,_) => mp } )
+        case _ => Seq[PairJ]() } ) }
+    
+    
+    /** MINIMALLY TESTED
+     * Apply a function JsValue => JsValue on every value of the argument
+     * keys in a JsObject are left intact. Use like
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 }, 
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "array"  |* { js => `{}` |+ "val"-> js }   gives  [{"val":"1"},{"val":"2"},{"val":"3"}]   
+     *   json | "object" |* { js => j(js.toStr+"s") }      gives  {"een":"1s","twee":"2s","drie":"3s"}  
+     *   json | "number" |* { js => `{}` |+ "answer"->js } gives  {"answer":42} 
+     * 
+     */
+    def |* (f: JsValue => JsValue): JsValue = map(f)
+    def map(f: JsValue => JsValue): JsValue =
+    { js match 
+      { case JsObject(seq) => JsObject(seq map { case (k,v) => (k,f(v)) })
+        case JsArray(seq)  => JsArray(seq map f)
+        case j : JsValue => f(j) } }     
+    
+    /** MINIMALLY TESTED
+     * Apply a projection (JsValue) => T on every value of the argument
+     * and return the result as a list.
+     */
+    def |*>[T](f: JsValue => T): List[T] = map(f)
+    def map[T](f: JsValue => T): List[T] =
+    { js match 
+      { case JsObject(seq) => (seq map { case (k,v) => f(v) }).toList
+        case JsArray(seq)  => (seq map f).toList
+        case j : JsValue => List[T](f(j)) } }     
+
+    /** TO TEST
+     * Apply a projection (Key,JsValue) => T on every pair in an object
+     * and return the result as a list.
+     */
+    def |*>[T](f: (String,JsValue) => T): List[T] = map(f)
+    def map[T](f: (String,JsValue) => T): List[T] =
+    { js match 
+      { case JsObject(seq) => (seq map { case (k,v) => f(k,v) }).toList
+        case _             => List[T]() } }     
+
+    /** MINIMALLY TESTED
+     * Apply a filter JsValue => Boolean on every value of the argument
+     * keys in a JsObject are left intact (if not removed). Simple types
+     * return a JsBoolean.
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "object" |! { js => js.to[Int](0)<2 }    gives  {"twee":2,"drie":3}  
+     *   json | "membs"  |  { js => ((js|"age")|>0)>30 } gives  [{"name":"Piet","age":43, "id": true}]  
+     *   json | "number" |  { js => js.to[Int](0)==42 }  gives  true  
+     */
+    def |  (fn: (JsValue => Boolean)): JsValue = js.filter(fn)  
+    def |! (fn: (JsValue => Boolean)): JsValue = js.filter( (x) => !fn(x) )  
+    def filter(f: JsValue => Boolean): JsValue =
+    { js match 
+      { case JsObject(seq) => JsObject(seq filter { case (k,v) => f(v) })
+        case JsArray(seq)  => JsArray(seq filter f)
+        case js : JsValue => JsBoolean(f(js)) } }     
+
+    /** MINIMALLY TESTED
+     * Select all pairs that equal kvs in the object or objects in array.
+     * that posses and kvs pair. This operation is not defined on simple types.
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "membs" | ("id"->j(false))     gives [{"name":"Klaas","age":19,"id":false}]
+     */
+    def | (kv: PairJ): JsValue = js.grep(kv)    
+    def grep(kv: PairJ): JsValue =
+    { js match 
+      { case JsObject(seq) => JsObject(seq filter { case (k,v) => (k==kv._1 && v==kv._2) })
+        case JsArray(seq)  => JsArray(seq filter { case (jo) => jo.hasPair(kv) })
+        case _  => JsUndefined("Grep on simple type") } }    
+
+    /**  MINIMALLY TESTED
+     * Dismiss all pairs that equal kvs in the object or objects in array.
+     * that posses and kvs pair. This operation is not defined on simple types.
+     * Example: see grep.
+     */
+    def |! (kv: PairJ): JsValue = js.grepNot(kv)    
+    def grepNot(kv: PairJ): JsValue =
+    { js match 
+      { case JsObject(seq) => JsObject(seq filterNot { case (k,v) => (k==kv._1 && v==kv._2) })
+        case JsArray(seq)  => JsArray(seq filterNot { case (jo) => jo.hasPair(kv) })
+        case _  => JsUndefined("Grep on simple type") } }     
+    
+    /** MINIMALLY TESTED
+     * Get the size of the underlying JsValue. For JsObjects this is the number of key,val
+     * pairs, for JsArrays the number of elements. Note an empty array in an object counts
+     * as one just as an empty object in an array. Primitive values have the size one, except
+     * for a single JsUndefined which count for 0
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "object" |+ ("vier"->j(4)) |#>  gives  4  
+     *   json | "membs"  | first |#>            gives  3 
+     *   json | "number" |#>                    gives  1  (note: NOT 2, see below) 
+     */
+    def |#> (): Int = js.size
+    def size: Int =
+    { js match 
+      { case JsObject(seq) => seq.size
+        case JsArray(seq)  => seq.size
+        case j:JsUndefined => 0
+        case _  => 1 } }  
+    
+    /** MINIMALLY TESTED
+     * Give the number of keys with name s in an object, or the number of strings s in an array.
+     * For a JsString returns zero or one depening on equality,returns zero for other jsvalues
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json |#> "absent" gives  0   
+     *   json |#> "string" gives  1   
+     *   json |#> "number" gives  2   
+     */
+    def |#> (s: String): Int = js.size(s)
+    def size(s: String): Int =
+    { js match 
+      { case JsObject(seq) => seq.count(_._1 == s)
+        case JsArray(seq)  => seq.count(_ == s)
+        case JsString(js)  => if (js==s) 1 else 0
+        case _  => 0 } }  
+
+    /** MINIMALLY TESTED
+     * Use get(), | to select an element of an array. Selection on empty arrays
+     * or non arrays return JsUndefined, otherwise an element is return. The
+     * index is computed modulo the size, so that "element" | -1 returns the
+     * last element of the array.
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "array" | -1   gives  3   
+     *   json | "array" | 0    gives  1   
+     *   json | "array" | 1    gives  2   
+     */
+    def | (i: Int): JsValue =  get(i)  
+    def get(i: Int): JsValue =
+    { js match 
+      { case JsArray(seq) => if (seq.size==0) JsUndefined("Index on empty array") else seq(modulo(i,seq.size))
+        case _ => JsUndefined("Index on non array") } }
+
+    /** MINIMALLY TESTED
+     * Just like you can select arrays by an index number, you can make use of the keywords
+     * first, centre and last. 
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "array" | first    gives  1   
+     *   json | "array" | centre   gives  3   
+     *   json | "array" | last     gives  3   
+     */
+    def | (p: JsPointer): JsValue = get(p) 
+    def get(p: JsPointer): JsValue = 
+    { (p,js) match 
+      { case (`first`,JsArray(seq))  => if (seq.size==0) JsUndefined("Index on empty array") else seq(0)
+        case (`centre`,JsArray(seq)) => if (seq.size==0) JsUndefined("Index on empty array") else seq(seq.size/2)
+        case (`last`,JsArray(seq))   => if (seq.size==0) JsUndefined("Index on empty array") else seq(seq.size-1) 
+        case _ => JsUndefined("Index on non array") } } 
+
+    /** MINIMALLY TESTED
+     * Select a field with key s from an object. If the key is present more than 
+     * once the first occurance is selected. With the additional parameter other
+     * occurances can be selected
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "number" gives  42   
+     *   json | ("number",0) gives  42   
+     *   json | ("number",1) gives  43   
+     *   json | ("number",2) gives  42   
+     */
+    def | (s: String): JsValue = get(s,0) 
+    def |& (s: String, occ: Int): JsValue = get(s,occ) 
+    def get(s: String, occ: Int = 0): JsValue =
+    { js match 
+      {  case JsObject(seq) => 
+        { val short = seq.filter (_._1 == s); 
+          if (short.isEmpty)  JsUndefined("Key absent") else short(modulo(occ,short.size))._2 }
+        case _ => JsUndefined("Key select on non object") } }
+       
+
+    /** General Description
+     * Add a value to the JsArray, or pack into an array. Use like
+     *   jsValue = jsValue |+ j("Klaas") 
+     * 
+     *  Syntax for manipulation:
+     *   
+     *   |+  j("x")      add element "x" at the end of the array
+     *   |&+ 4->j("x")   add element "x" at location 4 (modulo size+1), rest moves up, 
+     *   |%+ 4->j("x")   replace element "x" at location 4 (modulo size), add if array is empty
+     *   
+     *   |- 4            remove element nummer 4 from the array
+     *   |- j("x")       remove all elements "x" from the array
+     *   
+     *   |+  "key"->j("x")      add element key:"x" to the object, remove all present entries with equal key.
+     *   |&+ "key"->j("x")      add element key:"x" at the end, all exisiting keys with same name are KEPT, 
+     *   |&+ ("key",4)->j("x")  add element key:"x" at location 4 (modulo size+1, counting only equal keys), rest moves up, 
+     *   |%+ ("key",4)->j("x")  replace element key:"x" at location 4 (modulo size, counting only equal keys), add if key is not present 
+     *   
+     *   |- "key"        remove all entries with key from the object 
+     *   |- ("key",nr)   remove key number nr (modulo size, counting only equal keys) from the object 
+     *   |- key->j("x")  remove all pairs key:"x" from the object if they exist, do nothing otherwise.
+     *   
+     *  Examples
+     *   
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *           
+     */
+    
+    /** MINIMALLY TESTED
+     * Adds a jsValue at the end of an array
+     */
+    def |+(v: JsValue): JsValue = addArr((-1,v))
+
+    /** MINIMALLY TESTED
+     * Adds a jsValue at a special location of an array or object
+     * (double use of operator)
+     */
+    def |&+[T](lv: (T,JsValue)): JsValue = 
+    { lv match 
+      { case (loc:Int, jv: JsValue) => addArr((loc,jv))
+        case (key:String, jv: JsValue) => addObj((key,jv),-1)
+        case ((key:String, loc:Int), jv: JsValue) => addObj((key,jv),loc)
+        case _ => js } }
+
+    /** MINIMALLY TESTED
+     * Adds a jsValue at a special place of an array
+     */
+    def addArr(lv: (Int,JsValue)): JsValue =
+    { val (loc,v) = lv
+      js match 
+      { case JsArray(seq) => 
+        { val ins = modulo(loc,seq.size+1) 
+          JsArray( (seq.take(ins):+v) ++ seq.drop(ins) ) } 
+        case _ => JsUndefined("Element added on non array") } }
+    
+    /** MINIMALLY TESTED
+     * Replace an element from the array, modulo counting.
+     * On empty arrays the element is added, so the action is
+     * replace if possible otherwise add. 
+     */
+    def |%+[T](lv: (T,JsValue)): JsValue = 
+    { lv match 
+      { case (loc:Int, jv: JsValue) => setArr((loc,jv))
+        case ((key:String, loc:Int), jv: JsValue) => setObj((key,jv),loc)
+        case _ => js } }
+    
+    def setArr(lv: (Int,JsValue)): JsValue =
+    { val (loc,v) = lv
+      js match 
+      { case JsArray(seq) => 
+        { if (seq.size==0) JsArray(Seq(js,v)) else
+          { val ins = modulo(loc,seq.size) 
+            JsArray( (seq.take(ins):+v) ++ seq.drop(ins+1) ) } }
+        case _ => JsUndefined("Element set to non array") } }
+
+   /** MINIMALLY TESTED
+     * Remove an elements with a particular value from the array
+     * No action on empty arrays.
+     */
+    def |-(v: JsValue): JsValue = delArr(v)
+    def delArr(v: JsValue): JsValue =
+    { js match 
+      { case JsArray(seq) => 
+        if (seq.isEmpty) js else JsArray(seq.filterNot(_ == v)) 
+        case _ => JsUndefined("Element delete on non array")} }
+
+   /** MINIMALLY TESTED
+     * Remove an element from the array, modulo counting.
+     * No action on empty arrays.
+     */
+    def |-(i: Int): JsValue = delArr(i)
+    def delArr(i: Int): JsValue =
+    { js match 
+      { case JsArray(seq) => 
+        if (seq.isEmpty) js else 
+        { val im = modulo(i,seq.size); 
+          JsArray(seq.take(im)++seq.drop(im+1)) }
+        case _ => JsUndefined("Element delete on non array")} }
+
+    private type SSJ = Seq[(String,JsValue)]
+    private def keySearch(seq: SSJ, n: Int, s: String, hit: (Int,SSJ,PairJ) => (SSJ) ): (Int,SSJ) = 
+    { (seq.foldLeft((0,Seq[(String,JsValue)]()))( 
+      { case ( (i,seq) , (key,value) ) => 
+          if ((key!=s) ) (i,seq :+ (key,value)) 
+          else if ((i!=n)&&(n>=0))  (i+1,seq :+ (key,value))  
+          else  (i+1,hit(i,seq,(key,value))) } )) }
+    
+    
+    /** MINIMALLY TESTED
+     * Add a key,value pair to the object, if the key already
+     * exists, it is replaced, multiple keys are deleted. A new
+     * key is placed at the end. After return, the object is guaranteed
+     * to contain the key exactly once, pointing to the given jsValue. 
+     */
+    def |+ (kv: PairJ): JsValue = addObj(kv)
+    def addObj(kv: PairJ): JsValue = 
+    { val (k,v) = kv
+      js match 
+      { case JsObject(seq) =>  
+        { val keyCnt = seq.count(_._1 == k)
+          if ((seq.size==0) || (keyCnt==0) ) JsObject(seq :+ kv)
+          else JsObject( keySearch( seq, -1, k, (i,s,_)=>(if (i==0) s:+kv else s) )._2 ) }  
+        case _             => JsUndefined("Key,Value pair added to non object" ) } } 
+
+    /** MINIMALLY TESTED
+     * Add a key,value pair to the object, placed at a specific location.
+     * This is only needed to manipulate if multiple identical keys are
+     * required. Note: this is NOT normal operation of json objects, although
+     * not strictly forbidden. You should strive for unique keys! See Readme
+     * for a discussion about this. 
+     */
+    def addObj(kv: PairJ, loc: Int): JsValue = 
+    { val (k,v) = kv
+      js match 
+      { case JsObject(seq) =>  
+        { val keyCnt = seq.count(_._1 == k)
+          val ml = modulo(loc,keyCnt+1)
+          if ((seq.size==0) || (keyCnt==0) || (keyCnt==ml)) JsObject(seq :+ kv)
+          else JsObject( keySearch(seq, ml, k, (i,s,okv)=>(s:+kv:+okv))._2 ) }  
+        case _             => JsUndefined("Key,Value pair added to non object" ) } } 
+         
+    /** MINIMALLY TESTED
+     * Replace a key,value pair of the object at a specific location.
+     * This is only needed to manipulate if multiple identical keys are
+     * required. Note: this is NOT normal operation of json objects, although
+     * not strictly forbidden. You should strive for unique keys! See Readme
+     * for a discussion about this. 
+     */
+    def setObj(kv: PairJ, loc: Int): JsValue = 
+    { val (k,v) = kv
+      js match 
+      { case JsObject(seq) =>  
+        { val keyCnt = seq.count(_._1 == k)
+          if ((seq.size==0) || (keyCnt==0)) JsObject(seq :+ kv)
+          else JsObject( keySearch( seq, modulo(loc,keyCnt), k, (_,s,_)=>(s:+kv) )._2 ) }  
+        case _ => JsUndefined("Key,Value pair set to non object" ) } } 
+
+      
+    /**  MINIMALLY TESTED
+     * Removes the all keys from the object.
+     */
+    def |-(s: String): JsValue = delObj(s,None,true,0)
+
+    /**  MINIMALLY TESTED
+     * Removes the all key,values from the object, both key and value must match
+     * otherwise no action is taken. If multiple keys with different values are
+     * present, they are not changed.
+     */
+    def |-(kv: PairJ): JsValue = delObj(kv._1,Some(kv._2),true,0)
+
+    /**  MINIMALLY TESTED
+     * Removes the key at location n from the object.
+     */
+    def |-(s: String, n: Int): JsValue = delObj(s,None,false,n)
+    
+    def delObj(key: String, value: Option[JsValue], all: Boolean, n: Int): JsValue =
+    { js match 
+      { case JsObject(seq) =>  
+        { val keyCnt = seq.count(_._1 == key)
+          if ((seq.size==0) || (keyCnt==0)) js 
+          else JsObject( keySearch( seq, (if (all) -1 else modulo(n,keyCnt)), key, (_,s,kv)=> if (value.exists(_!=kv._2)) s:+kv else s )._2) } 
+        case _ => JsUndefined("Key delete on non object") } } 
+        
+    /**  MINIMALLY TESTED
+     * Combine two JsObjects or two JsArrays. Combining only succeeds for such types
+     * in all other other situations the argument is ignored. Use like
+     *   jsValue = jsValue1 ++ (jsValue2 | "key"->"value") 
+     * adds all jsObjects that contain the pair ("key"->"value") in array jsValue2 to array jsValue1
+     * Double keys are eliminated from both objects (even those only present in only on the operands) 
+     * if unique is true (default) later keys overwrite former ones Thus, the operation |++ `{}`
+     * will effectively remove all doubles. The last key in the second operand is the one that remains
+     * in case of double keys. To keep all keys, use |&++
+     */
+    def |++ (jv: JsValue): JsValue = join(jv,true)
+    def |&++ (jv: JsValue): JsValue = join(jv,false)
+    def join(jv: JsValue, unique: Boolean): JsValue = 
+    { (js,jv) match 
+      { case (JsArray(aseq), JsArray(bseq) ) => JsArray(aseq ++ bseq)
+        case (JsObject(aseq),JsObject(bseq)) => JsObject(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).toMap.toSeq ) 
+        case _ => JsUndefined("Join on incompatible json values") } } 
+    
+    
+    /** MINIMALLY TESTED
+     * Often you need to check if a values exists and has a senseable value.
+     * Use this. First result indicates if the value is valid, the second
+     * holds the value, if valid otherwise the specified default.
+     * 
+     */
+    def |??> (dflt: Boolean) = valid(dflt)
+    def valid(dflt: Boolean): (Boolean,Boolean) = 
+    { val r0 =  js.to[Boolean](dflt)
+      val r1 =  js.to[Boolean](!dflt)
+      ( r0==r1 , r0 ) } 
+
+    def |??> (dflt: Long) = valid(1,0,dflt)
+    def |??> (min: Long, max: Long, dflt: Long) = valid(min,max,dflt)
+    def valid(min: Long, max: Long, dflt: Long): (Boolean,Long) = 
+    { val r0 =  js.to[Long](dflt)
+      val r1 =  js.to[Long](dflt+1)
+      val valid = ( r0==r1 && ((r0>=min && r0<=max) || (min>max)) ) 
+      (valid,if (valid) r0 else dflt) } 
+   
+    def |??> (dflt: String) = valid(dflt)
+    def valid(dflt: String): (Boolean,String) = 
+    { val r0 =  js.to[String](dflt)
+      val r1 =  js.to[String](dflt+"?")
+      ( r0==r1 , r0 ) }     
+      
+  }
+}
