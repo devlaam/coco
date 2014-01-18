@@ -1,3 +1,22 @@
+/*
+ * CoCo Json - Copyright (C) 2014 Ruud Vlaming
+ *
+ * This file is part of the CoCo Json Library.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
 package helpers
 
 
@@ -14,7 +33,7 @@ object JsonBasic
     
     /**
      * Use the exclamation mark to quickly convert to a JsValues for further processing.
-     * toJvl is the accompaning method.
+     * toJvl is the accompanying method.
      */
     def unary_! = toJvl
     def toJvl   = JsValues(List(js))   
@@ -98,7 +117,7 @@ object JsonBasic
               case _ => dflt } } 
 
     /**
-     * Json.stringify make literal strings (with "") whereas the impicit read does not
+     * Json.stringify make literal strings (with "") whereas the implicit read does not
      * turn a number into a string, we need something in between, a good old toStr method.
      * For objects and arrays we use stringify, but this method is not meant to be used
      * for these types. Note, toString on JsValue's is implemented as stringify.

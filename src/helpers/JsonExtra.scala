@@ -1,3 +1,22 @@
+/*
+ * CoCo Json - Copyright (C) 2014 Ruud Vlaming
+ *
+ * This file is part of the CoCo Json Library.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
 package helpers
 
 import scala.language.postfixOps
@@ -494,9 +513,9 @@ object JsonExtra
 
        
     def |+(vs: JsValues): JsValues                       = addArr((-1,vs))
-    def |+ (kvs: PairJs): JsValues                        = addObj(kvs)
+    def |+ (kvs: PairJs): JsValues                       = addObj(kvs)
     def addArr(lvs: (Int,JsValues)): JsValues            = if (isNil(lvs)) this else { val ulvs=unpack(lvs); rev(j => j.addArr(ulvs),arr(ulvs)) }
-    def setArr(lvs: (Int,JsValues)): JsValues             = if (isNil(lvs)) this else { val ulvs=unpack(lvs); rev(j => j.setArr(ulvs),arr(ulvs)) }
+    def setArr(lvs: (Int,JsValues)): JsValues            = if (isNil(lvs)) this else { val ulvs=unpack(lvs); rev(j => j.setArr(ulvs),arr(ulvs)) }
     
     def |&+[T](lvs: (T,JsValues)): JsValues = 
     { lvs match 
