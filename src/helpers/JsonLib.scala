@@ -109,6 +109,29 @@ object JsonLib
       else
       { val r=(-x)%n
         if (r==0) 0 else n-r } } }  
+  
+  
+  /**
+   * Searching for the second IndexOf some value. Use this on all your
+   * sequences. IndexOf("foo") is (a special case of) indexNext(0,"foo"),
+   * get the second "foo" by  indexNext(1,"foo"). Start searching for
+   * the third "bar" after index 10 with  indexNext(2,"bar",10)  */
+  implicit class SeqOps[T](val s: Seq[T]) extends AnyVal
+  { def indexOfNext(cnt: Int, elm: T, from: Int = 0): Int = 
+    { if (cnt<0) -1 else
+      { val ind = s.indexOf(elm,from)
+        if (cnt==0 || ind<0) ind else indexOfNext(cnt-1,elm,ind+1) } } 
+
+    def indexWhereNext(cnt: Int, p: (T) => Boolean, from: Int = 0): Int = 
+    { if (cnt<0) -1 else
+      { val ind = s.indexWhere(p,from)
+        if (cnt==0 || ind<0) ind else indexWhereNext(cnt-1,p,ind+1) } } 
+
+    def insert(n: Int, elm: T) = s.patch(n,Seq(elm),0)
+    def cut(n: Int, m: Int=1) = s.patch(n,Nil,m)
+
+  }
+
  
   
   /** 

@@ -629,7 +629,8 @@ object JsonBasic
       js match 
       { case JsArray(seq) => 
         { val ins = modulo(loc,seq.size+1) 
-          JsArray( (seq.take(ins):+v) ++ seq.drop(ins) ) } 
+//          JsArray( (seq.take(ins):+v) ++ seq.drop(ins) ) } 
+          JsArray( (seq.insert(ins,v) )) } 
         case _ => JsUndefined("Element added on non array") } }
     
     /** MINIMALLY TESTED
@@ -649,11 +650,12 @@ object JsonBasic
       { case JsArray(seq) => 
         { if (seq.size==0) JsArray(Seq(js,v)) else
           { val ins = modulo(loc,seq.size) 
-            JsArray( (seq.take(ins):+v) ++ seq.drop(ins+1) ) } }
+//            JsArray( (seq.take(ins):+v) ++ seq.drop(ins+1) ) } }
+            JsArray( (seq.updated(ins,v) )) } }
         case _ => JsUndefined("Element set to non array") } }
 
    /** MINIMALLY TESTED
-     * Remove an elements with a particular value from the array
+     * Remove all elements with a particular value from the array
      * No action on empty arrays.
      */
     def |-(v: JsValue): JsValue = delArr(v)
@@ -673,7 +675,8 @@ object JsonBasic
       { case JsArray(seq) => 
         if (seq.isEmpty) js else 
         { val im = modulo(i,seq.size); 
-          JsArray(seq.take(im)++seq.drop(im+1)) }
+//          JsArray(seq.take(im)++seq.drop(im+1)) }
+          JsArray(seq.cut(im)) }
         case _ => JsUndefined("Element delete on non array")} }
 
     private type SSJ = Seq[(String,JsValue)]
