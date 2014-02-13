@@ -27,6 +27,7 @@ object JsonLib
 {
   import JsonBasic._
   import JsonExtra._
+  import JsonSpike._
   
   /**
    * Default objects for general use
@@ -34,6 +35,8 @@ object JsonLib
   val `{}` = JsObject(Nil)
   val `[]` = JsArray(Nil)
   val `()` = JsValues(Nil)
+  val `!{}` = JsStack(JsObject(Nil))
+  val `![]` = JsStack(JsArray(Nil))
   
    
   /**
@@ -42,7 +45,8 @@ object JsonLib
    */
   def j[T](x: T)(implicit fjs: Writes[T]): JsValue  = Json.toJson[T](x)(fjs)
   def J[T](x: JsValues): JsValues = x 
-  def J[T](x: T)(implicit fjs: Writes[T]): JsValues = j(x)(fjs) toJvl 
+  def Js[T](x: T)(implicit fjs: Writes[T]): JsValues = j(x)(fjs) toJvs 
+  def J[T](x: T)(implicit fjs: Writes[T]): JsStack = JsStack(j(x)(fjs))
 
   
   /**
@@ -86,11 +90,19 @@ object JsonLib
       { if ((jvlKey.isFilled) && (jvlVal.isFilled)) 
         { mss + (jvlKey.toStr->jvlVal.toStr) } 
         else mss  } } ) }
-    
+
+   
   /**
    * Try to make a map of some sensible strings from the underlying types.
    */
   def toMapSSS(map : Map[JsValues,JsValues]): Map[String,String] = 
+  { map.foldLeft(Map[String,String]())(
+    { case (mss,(jvlKey,jvlVal)) =>
+      { if ((jvlKey.isFilled) && (jvlVal.isFilled)) 
+        { mss + (jvlKey.toStr->jvlVal.toStr) } 
+        else  mss } } ) }
+
+  def toMapSSX(map : Map[JsStack,JsStack]): Map[String,String] = 
   { map.foldLeft(Map[String,String]())(
     { case (mss,(jvlKey,jvlVal)) =>
       { if ((jvlKey.isFilled) && (jvlVal.isFilled)) 
@@ -148,6 +160,7 @@ object JsonLib
   type Pair[T]  = (String,T)
   type PairJ  = Pair[JsValue]
   type PairJs = Pair[JsValues]
+  type PairJx = Pair[JsStack]
       
   /**
    * Class used to operate on JsValues and keep track of modifications

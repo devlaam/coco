@@ -35,17 +35,9 @@ object JsonSpike
 //        { mss + (jvlKey.toStr->jvlVal.toStr) } 
 //        else  mss } } ) }
   
-  type PairJs = Pair[JsStack]
-
-  def toMapSSS(map : Map[JsStack,JsStack]): Map[String,String] = 
-  { map.foldLeft(Map[String,String]())(
-    { case (mss,(jvlKey,jvlVal)) =>
-      { if ((jvlKey.isFilled) && (jvlVal.isFilled)) 
-        { mss + (jvlKey.toStr->jvlVal.toStr) } 
-        else  mss } } ) }
 
   // LET OP: Als curr None is, dan is de rest ongeldig. 
-  case class JsStack(curr: Option[JsValue], prev: Option[JsStack] = None, ind: Int = 0)
+  case class JsStack(private val curr: Option[JsValue], private val prev: Option[JsStack], private val ind: Int = 0)
   //case class JsValues(list: List[JsValue])
   { //private def pack(js: JsValue): JsValues                         = JsValues(js +: list)
     //private def pack(kv: PairJ): PairJs                             = (kv._1, JsValues(kv._2 +: list))
@@ -55,9 +47,9 @@ object JsonSpike
     //private def unpack(vs:JsValues): JsValue                        = (vs.list.head) 
     //private def unpack(kvs: PairJs): PairJ                          = (kvs._1,kvs._2.list.head) 
     //private def unpack(lvs: (Int,JsValues)): (Int,JsValue)          = (lvs._1,lvs._2.list.head) 
-      private def test(f: JsStack => Boolean):  PairJs => Boolean     = (x) => f(x._2)
+      private def test(f: JsStack => Boolean):  PairJx => Boolean     = (x) => f(x._2)
       private def unpack(vs:JsStack): JsValue                         = (vs.curr.head) 
-      private def unpack(kvs: PairJs): PairJ                          = (kvs._1,kvs._2.curr.head) 
+      private def unpack(kvs: PairJx): PairJ                          = (kvs._1,kvs._2.curr.head) 
 
     /* Pack in current stack, but do not alter the current stack */
 //    private def pack[T](seq: Seq[T], ind: Int): JsStack = 
@@ -68,16 +60,16 @@ object JsonSpike
 //          case sjp @ Seq[PairJ]() =>   JsStack(Some(sjp(iMod)._2),Some(this),iMod) } } }
 
     private def pack[T](seq: Seq[T], ind: Int): JsStack = 
-    { if (ind==0) JsStack.nil else
+    { if (seq.size==0) JsStack.nil else
       { val iMod = modulo(ind,seq.size)
         seq(iMod) match
         { case v: JsValue             => JsStack(Some(v),Some(this),iMod) 
           case (k: String,v: JsValue) => JsStack(Some(v),Some(this),iMod) } } }
 
     /* Pack in new stack, just as function */
-    private def pack(js: JsValue): JsStack                          = JsStack(Some(js))
-    private def pack(kv: PairJ): PairJs                             = (kv._1, JsStack(Some(kv._2)))
-    private def melt(f: JsStack => JsStack): PairJs => PairJs       = (x) => (x._1,f(x._2))
+    private def pack(js: JsValue): JsStack                          = JsStack(js)
+    private def pack(kv: PairJ): PairJx                             = (kv._1, JsStack(kv._2))
+    private def melt(f: JsStack => JsStack): PairJx => PairJx       = (x) => (x._1,f(x._2))
 
     private def act(f: (JsValue => JsValue)): JsStack                 =  if (curr.isEmpty) this else pack(f(curr.head)) 
     private def inf[T](f: (JsValue => T), df: T): T                   =  if (curr.isEmpty) df else f(curr.head)
@@ -95,38 +87,52 @@ object JsonSpike
 //        repack(JsValues(oldVals.list.tail), JsValues(newVals.list :+ newParent)) } }
         
     private def strip(jsNew: Option[JsValue], jss: Option[JsStack], inx: List[Int]): JsStack =
-    { (jsNew,jss) match 
+    { //println("Enter strip: ")
+      //println(" jsNew: "+jsNew)
+      //println(" jss: "+jss)
+      //println(" inx: "+inx)
+      (jsNew,jss) match 
       { case (Some(jsv),Some(JsStack(Some(JsObject(so)),prevJn,indOld))) => strip(Some(JsObject(so.patch(inx.head,Seq((so(inx.head)._1,jsv)),1))),prevJn,indOld::inx) 
         case (Some(jsv),Some(JsStack(Some(JsArray(sa)),prevJn,indOld)))  => strip(Some(JsArray(sa.patch(inx.head,Seq(jsv),1))),prevJn,indOld::inx) 
         case _                                                           => glue(jsNew,None,inx) } }   
 
     private def glue(jsNew: Option[JsValue], jss: Option[JsStack], inx: List[Int]): JsStack =
-    { if (jsNew == None) JsStack(None) else 
-      if (inx.isEmpty) JsStack(jsNew,jss) else
+    { //println("Enter glue: ")
+      //println(" jsNew: "+jsNew)
+      //println(" jss: "+jss)
+      //println(" inx: "+inx)
+      if (jsNew.isEmpty || inx.isEmpty) JsStack.nil else 
       { val jssNew = JsStack(jsNew,jss,inx.head)
-        jsNew match
-        { case Some(JsObject(so)) => glue(Some(so(inx.head)._2),Some(jssNew),inx.tail) 
-          case Some(JsArray(sa))  => glue(Some(sa(inx.head)),Some(jssNew),inx.tail) 
-          case _                  => jssNew } } }   
+        if (inx.size==1) jssNew else
+        { jsNew match
+          { case Some(JsObject(so)) => glue(Some(so(inx(1))._2),Some(jssNew),inx.tail) 
+            case Some(JsArray(sa))  => glue(Some(sa(inx(1))),Some(jssNew),inx.tail) 
+//            case _                  => jssNew } } }   
+            case _                  => jssNew } } }  }
 
     private def attachToArray(jssNew: JsStack, ind: Int, insert: Boolean): JsStack = 
     { val pi = if (insert) 0 else 1
       (jssNew,this) match 
-      { case ( JsStack(Some(jsv),_,_) , JsStack(Some(JsArray(sa)),prevJn,indOld) )  =>  
-        { val iMod = modulo(ind,sa.size+1)
-          strip(Some(JsArray(sa.patch(iMod,Seq(jsv),pi))),prevJn,List(indOld,iMod)) } 
+      { case ( JsStack(None,_,_), _) => this
+        case ( JsStack(Some(jsv),_,_) , JsStack(Some(JsArray(sa)),prevJn,indOld) )  =>  
+        { val iMod = if (sa.size==0) 0 else modulo(ind,sa.size+(1-pi))
+//          strip(Some(JsArray(sa.patch(iMod,Seq(jsv),pi))),prevJn,List(indOld,iMod)) } 
+          strip(Some(JsArray(sa.patch(iMod,Seq(jsv),pi))),prevJn,List(indOld)) } 
         case _ =>  JsStack.nil } }   
 
-    private def attachToObject(jssNew: JsStack, ind: Int, key: String, insert: Boolean): JsStack = 
-    { val pi = if (insert) 0 else 1
+    private def attachToObject(jssNew: JsStack, ind: Int, key: String, insert: Boolean, unique: Boolean): JsStack = 
+    { //println("Enter attachToObject: "+jssNew)
+      val pi = if (insert) 0 else 1
       (jssNew,this) match 
-      { case ( JsStack(Some(jsv),_,_) , JsStack(Some(JsObject(so)),prevJn,indOld) )  =>  
-        { if (so.size==0) strip( Some(JsObject(Seq((key,jsv)))) , prevJn , List(indOld,0) ) 
-          else
-          { val kCnt = so.count (_._1 == key)
-            val iMod = modulo(ind,kCnt+1)
-            val iNew = so.indexWhereNext(iMod,_._1 == key)
-            strip(Some(JsObject(so.patch(iNew,Seq((key,jsv)),pi))),prevJn,List(indOld,iNew)) } }
+      { case ( JsStack(None,_,_), _) => this
+        case ( JsStack(Some(jsv),_,_) , JsStack(Some(JsObject(so)),prevJn,indOld) )  =>  
+        { val kCnt = so.count (_._1 == key)
+          val iMod = if (unique || kCnt==0) 0 else modulo(ind,kCnt+(1-pi))
+          val iNew = if (iMod==kCnt) so.size else so.indexWhereNext(iMod,_._1 == key)
+          val jso  = if (unique) JsObject(so.filterNot(_._1 == key).insert(iNew,(key,jsv))) else JsObject(so.patch(iNew,Seq((key,jsv)),pi))
+          strip(Some(jso),prevJn,List(indOld)) 
+          //strip(Some(jsv),Some(JsStack(Some(jso),prevJn,indOld)),List(iNew)) 
+          }
         case _ =>  JsStack.nil } }   
 
     /* Verwijder of nummer ind of alle waarden gelijk aan jssRemove */
@@ -165,7 +171,7 @@ object JsonSpike
 //    private def inf[T](f: (JsValue => T), df: T): T                   =  if (list.isEmpty) df else f(list.head)
     //private def isNil(kvs: PairJs): Boolean                            =  kvs._2.list.isEmpty
      private def isNil[T](pvs: (T,JsStack)): Boolean                  =  pvs._2.isNil
-     private def isNil[T](pvs: PairJs): Boolean                       =  pvs._2.isNil
+     private def isNil[T](pvs: PairJx): Boolean                       =  pvs._2.isNil
    
     
     
@@ -254,7 +260,7 @@ object JsonSpike
       else p match 
       { case `first`  => move(-1)
         case `centre` => move(length/2)
-        case `last`   => JsStack(curr) } } 
+        case `last`   => JsStack(curr,None,0) } } 
     
     /** TO TEST
      * Return the depth of the present selection. A value zero
@@ -282,7 +288,7 @@ object JsonSpike
      * This is equivalent to  |< last 
      */
     //def toJvl = JsValues(list.take(1))
-    def toJvl: JsStack = JsStack(curr)
+    def toJvl: JsStack = JsStack(curr,None,0)
     
     /** MINIMALLY TESTED
      * Normally you close a selection/modification with this operators, if you need the original
@@ -448,18 +454,18 @@ object JsonSpike
      *                         
      *   json | "membs" | ("id"->j(false))     gives [{"name":"Klaas","age":19,"id":false}]
      */
-    def |  (kvs: PairJs): JsStack = grep(kvs)   
+    def |  (kvs: PairJx): JsStack = grep(kvs)   
 //    def grep(kvs: PairJs): JsValues = 
 //    { if ( (isNil) || isNil(kvs) ) JsValues.nil 
 //      else list.head match
 //      { case JsObject(seq) => pack( JsObject(seq filter ( _ == unpack(kvs) ) ) )
 //        case JsArray(seq)  => pack( JsArray( seq filter ( _.hasPair(unpack(kvs)) ) ) )
 //        case _             => JsValues.nil } }    
-    def grep(kvs: PairJs): JsStack = 
+    def grep(kvs: PairJx): JsStack = 
     { if ( isNil || isNil(kvs) ) JsStack.nil 
       else curr.head match
-      { case JsObject(seq) => JsStack(Some(JsObject(seq filter ( _ == unpack(kvs) ))))
-        case JsArray(seq)  => JsStack(Some(JsArray( seq filter ( _.hasPair(unpack(kvs)) ))))
+      { case JsObject(seq) => pack(JsObject(seq filter ( _ == unpack(kvs) )))
+        case JsArray(seq)  => pack(JsArray( seq filter ( _.hasPair(unpack(kvs)) )))
         case _             => JsStack.nil } }    
 
     /** MINIMALLY TESTED
@@ -467,18 +473,18 @@ object JsonSpike
      * that posses and kvs pair. This operation is gives an emty trail on simple types.
      * Example: see grep.
      */
-    def |! (kvs: PairJs): JsStack = grepNot(kvs) 
+    def |! (kvs: PairJx): JsStack = grepNot(kvs) 
 //    def grepNot(kvs: PairJs): JsValues = 
 //    { if ( (isNil) || isNil(kvs) ) JsValues.nil 
 //      else list.head match
 //      { case JsObject(seq) => pack( JsObject(seq filterNot ( _ == unpack(kvs) ) ) )
 //        case JsArray(seq)  => pack( JsArray( seq filterNot ( _.hasPair(unpack(kvs)) ) ) )
 //        case _             => JsValues.nil } }    
-    def grepNot(kvs: PairJs): JsStack = 
+    def grepNot(kvs: PairJx): JsStack = 
     { if ( (isNil) || isNil(kvs) ) JsStack.nil 
       else curr.head match
-      { case JsObject(seq) => JsStack(Some(JsObject(seq filterNot ( _ == unpack(kvs) ))))
-        case JsArray(seq)  => JsStack(Some(JsArray( seq filterNot ( _.hasPair(unpack(kvs)) ))))
+      { case JsObject(seq) => pack(JsObject(seq filterNot ( _ == unpack(kvs) )))
+        case JsArray(seq)  => pack(JsArray( seq filterNot ( _.hasPair(unpack(kvs)) )))
         case _             => JsStack.nil } }    
 
 
@@ -515,14 +521,14 @@ object JsonSpike
     def map(f: JsStack => JsStack): JsStack =
     { if (isNil) this
       else curr.head match
-      { case JsObject(seq) => JsStack(Some( JsObject(seq map (melt(f) compose pack)  filterNot (isNil(_)) map ( unpack(_) )) )) 
-        case JsArray(seq)  => JsStack(Some( JsArray(seq map (f compose pack) filterNot (_.isNil) map ( unpack(_) ) ) ))
+      { case JsObject(seq) => pack( JsObject(seq map (melt(f) compose pack)  filterNot (isNil(_)) map ( unpack(_) )) )
+        case JsArray(seq)  => pack( JsArray(seq map (f compose pack) filterNot (_.isNil) map ( unpack(_) ) ) )
         case j : JsValue   => f(pack(j)) } } 
 
     /** MINIMALLY TESTED
      * Construct a map of pairs by inspecting an array of JsValues.
      */
-    def |!*>(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean): Map[String,String] = toMapSSS(filterMap(key,value,filter)) 
+    def |!*>(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean): Map[String,String] = toMapSSX(filterMap(key,value,filter)) 
     def |!*(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean): Map[JsStack,JsStack] = filterMap(key,value,filter) 
 //    def filterMap(key: JsValues=>JsValues, value: JsValues=>JsValues, filter: JsValues=>Boolean): Map[JsValues,JsValues] = 
 //    { val leeg = Map[JsValues,JsValues]()
@@ -547,7 +553,7 @@ object JsonSpike
      * or covert them to something more recognizable:
      *   val s: Map[String,String] = jsValue.toPSSMap[String]("?") 
      */
-    def |^*>(keykey: String, valkey: String): Map[String,String] = toMapSSS(peelMap(keykey,valkey)) 
+    def |^*>(keykey: String, valkey: String): Map[String,String] = toMapSSX(peelMap(keykey,valkey)) 
     def |^*(keykey: String, valkey: String): Map[JsStack,JsStack] = peelMap(keykey,valkey)
 //    def peelMap(keykey: String, valkey: String): Map[JsValues,JsValues] = 
 //	  { val leeg = Map[JsValues,JsValues]()
@@ -653,8 +659,8 @@ object JsonSpike
      *   val b: Boolean = jsValue.contains("id"->"kees")
      * for other types the result is always false
      */
-    def |?>(kvs: PairJs): Boolean         = hasPair(kvs)
-    def hasPair(kvs: PairJs): Boolean     = if (isNil(kvs)) false else inf(j => j.hasPair(unpack(kvs)),false)
+    def |?>(kvs: PairJx): Boolean         = hasPair(kvs)
+    def hasPair(kvs: PairJx): Boolean     = if (isNil(kvs)) false else inf(j => j.hasPair(unpack(kvs)),false)
  
     /** MINIMALLY TESTED
      * Json.stringify make literal strings (with "") whereas the impicit read does not
@@ -722,7 +728,7 @@ object JsonSpike
 
        
     def |+(vs: JsStack): JsStack                        = addArr((-1,vs))
-    def |+ (kvs: PairJs): JsStack                       = addObj(kvs)
+    def |+ (kvs: PairJx): JsStack                       = addObj(kvs)
 //    def addArr(lvs: (Int,JsValues)): JsValues            = if (isNil(lvs)) this else { val ulvs=unpack(lvs); rev(j => j.addArr(ulvs),arr(ulvs)) }
 //    def setArr(lvs: (Int,JsValues)): JsValues            = if (isNil(lvs)) this else { val ulvs=unpack(lvs); rev(j => j.setArr(ulvs),arr(ulvs)) }
     
@@ -748,13 +754,13 @@ object JsonSpike
 //    def addObj(kvs: PairJs, loc: Int): JsValues           = if (isNil(kvs)) this else { val ukvs=unpack(kvs); rev(j => j.addObj(ukvs,loc),obj(ukvs)) }
 //    def setObj(kvs: PairJs, loc: Int): JsValues           = if (isNil(kvs)) this else { val ukvs=unpack(kvs); rev(j => j.setObj(ukvs,loc),obj(ukvs)) }
        
-    def addObj(kvs: PairJs): JsStack                     = attachToObject(kvs._2,-1,kvs._1,true) 
-    def addObj(kvs: PairJs, loc: Int): JsStack           = attachToObject(kvs._2,loc,kvs._1,true) 
-    def setObj(kvs: PairJs, loc: Int): JsStack           = attachToObject(kvs._2,loc,kvs._1,false) 
+    def addObj(kvs: PairJx): JsStack                     = attachToObject(kvs._2,-1,kvs._1,true,true) 
+    def addObj(kvs: PairJx, loc: Int): JsStack           = attachToObject(kvs._2,loc,kvs._1,true,false) 
+    def setObj(kvs: PairJx, loc: Int): JsStack           = attachToObject(kvs._2,loc,kvs._1,false,false) 
 
     def |-(s: String): JsStack                           = delObj(s,JsStack.nil,true,0)
     def |-(s: String, n: Int): JsStack                   = delObj(s,JsStack.nil,false,n)
-    def |-(kv: PairJs): JsStack                          = delObj(kv._1,kv._2,true,0)
+    def |-(kv: PairJx): JsStack                          = delObj(kv._1,kv._2,true,0)
     
 //    def delObj(s: String, values: JsValues,all: Boolean, n: Int): JsValues = rev(j => j.delObj(s,if (values.isNil) None else Some(unpack(values)), all,n)) 
     def delObj(s: String, values: JsStack, all: Boolean, n: Int): JsStack = detachFromObject(s, values, n, all)
@@ -782,6 +788,7 @@ object JsonSpike
   } 
 
   object JsStack
-  { def nil = JsStack(None) }
+  { def nil = JsStack(None,None,0) 
+    def apply(jv: JsValue): JsStack = new JsStack(Some(jv),None,0) }
  
 }

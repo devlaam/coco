@@ -27,6 +27,7 @@ import play.api.libs.json._
 object JsonBasic 
 { import JsonLib._
   import JsonExtra._
+  import JsonSpike._
   
   implicit class JsonOps(val js: JsValue) extends AnyVal 
   { 
@@ -35,8 +36,9 @@ object JsonBasic
      * Use the exclamation mark to quickly convert to a JsValues for further processing.
      * toJvl is the accompanying method.
      */
-    def unary_! = toJvl
-    def toJvl   = JsValues(List(js))   
+    def unary_! = toJvx
+    def toJvs   = JsValues(List(js))   
+    def toJvx   = JsStack(js)   
     
     /** TO TEST
      *  Test is the JsValue is empty. Arrays, Objects and strings can be empty.

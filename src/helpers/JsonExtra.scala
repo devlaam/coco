@@ -22,6 +22,7 @@ package helpers
 import scala.language.postfixOps
 import play.api.libs.json._
 
+@Deprecated
 object JsonExtra 
 { import JsonLib._
   import JsonBasic._
