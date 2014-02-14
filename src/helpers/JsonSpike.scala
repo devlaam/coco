@@ -175,12 +175,12 @@ object JsonSpike
    
     
     
-    private def obj(kv: PairJ): JsObject = JsObject(Seq(kv)) 
-    private def arr(lv: (Int,JsValue)): JsArray = arr(lv._2)  
-    private def arr(js: JsValue): JsArray = 
-    { js match 
-      { case ja @ JsArray(s) => ja; 
-        case _ => JsArray(Seq(js)) } }
+//    private def obj(kv: PairJ): JsObject = JsObject(Seq(kv)) 
+//    private def arr(lv: (Int,JsValue)): JsArray = arr(lv._2)  
+//    private def arr(js: JsValue): JsArray = 
+//    { js match 
+//      { case ja @ JsArray(s) => ja; 
+//        case _ => JsArray(Seq(js)) } }
 
     /** MINIMALLY TESTED
      * Use move to move up the trajectory of the modified json.
@@ -303,17 +303,29 @@ object JsonSpike
      * 
      * |>   is equivalent to  |< first 
      * |>>  is equivalent to  |< last 
+     * 
+     * With |> (default: JsStack) you select a default JsStack value should the first evaluation
+     * result in a nil. If the default is of the type JsValue or a primitive a cast is performed
+     * to that type, should it fail the default is returned. Note: this also is about the first element
      */
 //    def |>() = JsValues(list.reverse.take(1))
 //    def |>>() = JsValues(list.take(1))
     def |>() = move(-1)
     def |>>() = toJvl
     
+    //Zouden we dit niet zo kunnen maken dat je dit |> gewoon kan weglaten? Dan zou
+    // elk gebruik als parameter automatisch naar boven moeten fietsen. Dat lijkt
+    // wel consistent, je kan dan geen 'halve' ketens vasthouden omdat bij gebruik
+    // naar boven wordt gegaan. Wil je een projectie, dan moet je met  |> afsnijden.    
+    // Hmm, ik denk niet dat dat kan, want het is niet altijd duidelijk wanneer
+    // je naar boven moet bewegen.
+    
     
     /** TO TEST
      * Use these operators to convert to a primitive type or extract the JsValue.
      * The provision of a default value in case of impossible conversion is needed.
      */
+    def |> (dflt: JsStack)                                = firstTo(dflt)
     def |>[T](dflt: JsValue): JsValue                     = lastTo(dflt)
     def |>[T](dflt: T)(implicit fjs: Reads[T]): T         = lastTo(dflt)(fjs)
 //    def lastTo(dflt: JsValue): JsValue                    = if (list.isEmpty) dflt else list.head
@@ -322,6 +334,7 @@ object JsonSpike
 //    def firstTo[T](dflt: T)(implicit fjs: Reads[T]): T    = if (list.isEmpty) dflt else list.last.to(dflt)(fjs)
     def lastTo(dflt: JsValue): JsValue                    = curr.getOrElse(dflt)
     def lastTo[T](dflt: T)(implicit fjs: Reads[T]): T     = if (curr.isEmpty) dflt else curr.head.to(dflt)(fjs)
+    def firstTo(dflt: JsStack): JsStack                   = { val top = move(-1); if (top.isNil) dflt else top }
     def firstTo(dflt: JsValue): JsValue                   = move(-1).lastTo(dflt)
     def firstTo[T](dflt: T)(implicit fjs: Reads[T]): T    = move(-1).lastTo(dflt)
         
@@ -710,6 +723,13 @@ object JsonSpike
 //    def peel(keykey: String, valkey: String): JsValues   = act(j => j.peel(keykey,valkey))
     def peel(key: String): JsStack                      = act(j => j.peel(key))
     def peel(keykey: String, valkey: String): JsStack   = act(j => j.peel(keykey,valkey))
+
+
+    
+    def |= (keep: Boolean)                             = flatten(keep)
+    def flatten(keep: Boolean): JsStack                = act(j => j.flatten(keep))
+    def flatArr(keepPrimitive: Boolean): JsStack       = act(j => j.flatArr(keepPrimitive))
+    def flatObj(keepMultipleKeys: Boolean): JsStack    = act(j => j.flatObj(keepMultipleKeys))
 
     
     def |*>[T](f: JsStack => T): List[T]                = map(f)

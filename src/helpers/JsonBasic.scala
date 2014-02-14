@@ -285,6 +285,64 @@ object JsonBasic
           case (li,_)  => li } )
         case _ => JsArray(Nil) } } 
     
+    
+    
+        
+    /** TO TEST
+     * Tries to flattens an array. If the array consists of pure objects,
+     * it is passed to flatObj with the keep parameter, otherwise it is
+     * passed to flatArr with the keep parameter.  This operation 
+     * only works on arrays, application on other types in an error,
+     * and will result in an JsUndefined.
+     */
+    def |= (keep: Boolean) = flatten(keep)
+    def flatten(keep: Boolean): JsValue =
+    { js match
+      { case JsArray(seq) => 
+        { val pureObject = seq.forall( 
+          { case JsObject(jo) => true; 
+            case _ => false;  } )
+          if (pureObject) flatObj(keep) else flatArr(keep) } 
+        case _ => JsUndefined("flat on non array") } } 
+    
+    /** TO TEST
+     * Transform an array of array's into one flat array. If an array 
+     * contains a mixture of objects and other values, these are removed.
+     * Primitives can be kept upon request.
+     * This operation 
+     * only works on arrays, application on other types in an error,
+     * and will result in an JsUndefined. Note that at object
+     * construction multiple identical keys may arise.
+     * 
+     */
+    def flatArr(keepPrimitive: Boolean): JsValue =
+    { js match
+      { case JsArray(seq) => seq.foldLeft(JsArray(Nil))( 
+        { case (JsArray(jl),JsArray(ja)) => JsArray(jl ++ ja)
+          case (ajl,JsObject(jo))        => ajl  
+          case (JsArray(jl),js)          => if (keepPrimitive) JsArray(jl :+ js) else JsArray(jl) } )
+        case _ => JsUndefined("flat on non array") } } 
+    
+    /** TO TEST
+     * Transform an array of objects into one object. If an array contains
+     * a mixture of objects and other values like arrays these are
+     * removed. This operation only works on arrays, application on 
+     * other types is an error, and will result in an JsUndefined. 
+     * Note that at object construction multiple identical keys may arise,
+     * there are all (!) removed, unless requested otherwise.
+     */
+    def flatObj(keepMultipleKeys: Boolean): JsValue =
+    { js match
+      { case JsArray(seq) => 
+        { val res = seq.foldLeft(JsObject(Nil))( 
+          { case (JsObject(jl),JsObject(jo))  => JsObject(jl ++ jo)
+            case (ojl,_)                      => ojl } )
+          if (keepMultipleKeys) res else
+          { val JsObject(seq) = res
+            val keys = seq.map(_._1)
+            val unique = seq.filter( {case (k,v) => (keys.indexOf(k) == keys.lastIndexOf(k)) } )
+            JsObject(unique) } }
+        case _ => JsUndefined("flat on non array") } } 
 
     /**   MINIMALLY TESTED
      * Construct an JsObject of JsValues by selecting those values corresponding
@@ -460,7 +518,7 @@ object JsonBasic
     
     /** MINIMALLY TESTED
      * Give the number of keys with name s in an object, or the number of strings s in an array.
-     * For a JsString returns zero or one depening on equality,returns zero for other jsvalues
+     * For a JsString returns zero or one depending on equality, returns zero for other jsvalues
      * 
      *  json = { "number" : 42,
      *           "string" : "FooBar",
