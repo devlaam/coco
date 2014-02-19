@@ -144,7 +144,10 @@ object JsonLib
 
   }
 
- 
+  implicit class StringOps(val s: String) extends AnyVal
+  { import scala.util.control.Exception._
+    def asInt = catching(classOf[NumberFormatException]) opt s.toInt
+  } 
   
   /** 
    *  Adds extensions methods to the `JSON` companion object.

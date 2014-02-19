@@ -621,12 +621,24 @@ object JsonBasic
     def | (s: String): JsValue = get(s,0) 
     def |& (s: String, occ: Int): JsValue = get(s,occ) 
     def get(s: String, occ: Int = 0): JsValue =
-    { js match 
-      {  case JsObject(seq) => 
+    { (js,s.asInt) match 
+      { case (JsObject(seq),_) => 
         { val short = seq.filter (_._1 == s); 
           if (short.isEmpty)  JsUndefined("Key absent") else short(modulo(occ,short.size))._2 }
-        case _ => JsUndefined("Key select on non object") } }
+        case (JsArray(seq),Some(ind)) => 
+        { if (seq.size==0) JsUndefined("Index on empty array") else seq(modulo(ind,seq.size)) }
+        case _ => JsUndefined("Key select on non object or string on non array.") } }
        
+    /** TO TEST
+     *  select multiple keys in succession at once.
+     */
+    def | [T](s: List[T]): JsValue = get(s)     
+    def get[T](s: List[T]): JsValue =
+    { s match
+      { case Nil                => js
+        case (e:Int) :: rest    => get(e).get(rest) 
+        case (e:String) :: rest => get(e).get(rest) 
+        case _                  => JsUndefined("Key must be string or number.") }}
 
     /** General Description
      * Add a value to the JsArray, or pack into an array. Use like
@@ -743,7 +755,7 @@ object JsonBasic
     private def keySearch(seq: SSJ, n: Int, s: String, hit: (Int,SSJ,PairJ) => (SSJ) ): (Int,SSJ) = 
     { (seq.foldLeft((0,Seq[(String,JsValue)]()))( 
       { case ( (i,seq) , (key,value) ) => 
-          if ((key!=s) ) (i,seq :+ (key,value)) 
+          if ((key!=s)) (i,seq :+ (key,value)) 
           else if ((i!=n)&&(n>=0))  (i+1,seq :+ (key,value))  
           else  (i+1,hit(i,seq,(key,value))) } )) }
     
@@ -760,7 +772,7 @@ object JsonBasic
       js match 
       { case JsObject(seq) =>  
         { val keyCnt = seq.count(_._1 == k)
-          if ((seq.size==0) || (keyCnt==0) ) JsObject(seq :+ kv)
+          if (keyCnt==0) JsObject(seq :+ kv)
           else JsObject( keySearch( seq, -1, k, (i,s,_)=>(if (i==0) s:+kv else s) )._2 ) }  
         case _             => JsUndefined("Key,Value pair added to non object" ) } } 
 
@@ -777,8 +789,27 @@ object JsonBasic
       { case JsObject(seq) =>  
         { val keyCnt = seq.count(_._1 == k)
           val ml = modulo(loc,keyCnt+1)
-          if ((seq.size==0) || (keyCnt==0) || (keyCnt==ml)) JsObject(seq :+ kv)
+          if ((keyCnt==0) || (keyCnt==ml)) JsObject(seq :+ kv)
           else JsObject( keySearch(seq, ml, k, (i,s,okv)=>(s:+kv:+okv))._2 ) }  
+        case _             => JsUndefined("Key,Value pair added to non object" ) } } 
+    
+    /** MINIMALLY TESTED
+     * Add the pair only when the key is already present (present=true)
+     * of only if the key is absent (present=false). In other cases do nothing.
+     * After return, the object is guaranteed
+     * to contain the key exactly once.
+     */
+    def |+? (kv: PairJ): JsValue = addObjWhen(kv,true)
+    def |+!? (kv: PairJ): JsValue = addObjWhen(kv,false)
+    def addObjWhen(kv: PairJ, present: Boolean): JsValue =  
+    { val (k,v) = kv
+      js match 
+      { case JsObject(seq) =>  
+        { val keyCnt = seq.count(_._1 == k)
+          if (keyCnt==0) 
+          { if (present)  js else JsObject(seq :+ kv) }
+          else
+          { if (!present) js else JsObject( keySearch( seq, -1, k, (i,s,_)=>(if (i==0) s:+kv else s) )._2 ) } }  
         case _             => JsUndefined("Key,Value pair added to non object" ) } } 
          
     /** MINIMALLY TESTED
@@ -793,7 +824,7 @@ object JsonBasic
       js match 
       { case JsObject(seq) =>  
         { val keyCnt = seq.count(_._1 == k)
-          if ((seq.size==0) || (keyCnt==0)) JsObject(seq :+ kv)
+          if (keyCnt==0) JsObject(seq :+ kv)
           else JsObject( keySearch( seq, modulo(loc,keyCnt), k, (_,s,_)=>(s:+kv) )._2 ) }  
         case _ => JsUndefined("Key,Value pair set to non object" ) } } 
 
@@ -819,7 +850,7 @@ object JsonBasic
     { js match 
       { case JsObject(seq) =>  
         { val keyCnt = seq.count(_._1 == key)
-          if ((seq.size==0) || (keyCnt==0)) js 
+          if (keyCnt==0) js 
           else JsObject( keySearch( seq, (if (all) -1 else modulo(n,keyCnt)), key, (_,s,kv)=> if (value.exists(_!=kv._2)) s:+kv else s )._2) } 
         case _ => JsUndefined("Key delete on non object") } } 
         

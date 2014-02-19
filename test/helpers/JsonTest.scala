@@ -65,10 +65,13 @@ class JsonTest extends Specification
 	  { (source | "number")  ===  j(42)
 	    (source | "string")  ===  j("FooBar") 
 	    (source | "absent").toString  ===  (JsUndefined("Key absent").toString) 
-	    (source | "array" | "number").toString  ===  (JsUndefined("Key select on non object").toString) 
+	    (source | "array" | "number").toString  ===  (JsUndefined("Key select on non object or string on non array.").toString) 
 	    (source |& ("number",0) )  ===  j(42)
 	    (source |& ("number",1) )  ===  j(43)
 	    (source |& ("number",2) )  ===  j(42)
+	    (source | List("object","een") )  ===  j(1)
+	    (source | List("membs",1,"age") )  ===  j(43)
+	    (source | List("membs","1","age") )  ===  j(43)
 	  }
 	  
 	  "survive array selections" in 
@@ -76,6 +79,7 @@ class JsonTest extends Specification
 	    (source | "array" | 0)   ===  j("1")
 	    (source | "array" | 1)   ===  j("2")
 	    (source | "array" | 2)   ===  j("3")
+	    (source | "array" | "2")   ===  j("3")
 	    (source | "array" | first)    ===  j("1")
 	    (source | "array" | centre)   ===  j("2")
 	    (source | "array" | last)     ===  j("3")
@@ -120,7 +124,11 @@ class JsonTest extends Specification
           
           
 	  "survive addition" in 
-	  { (source | "array" |+ j("4"))  ===  JP(""" ["1","2","3","4"] """)  }
+	  { (source | "array"  |+ j("4"))           ===  JP(""" ["1","2","3","4"] """)  
+	    (source | "object" |+? "drie"->j(4))    ===  JP(""" { "een": 1, "twee": 2, "drie": 4 } """)
+	    (source | "object" |+? "vier"->j(4))    ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
+	    (source | "object" |+!? "drie"->j(4))   ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
+	    (source | "object" |+!? "vier"->j(4))   ===  JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4  } """) }
 	  
 	  "survive joins" in 
 	  { ((source | "object") |++ (source | "object") )   ===  JP(""" {"een":1,"twee":2,"drie":3} """)  
@@ -259,7 +267,10 @@ class JsonTest extends Specification
   	  
           
 	  "survive addition" in 
-	  { (sources | "array" |+ Js("4")  |> JsUndefined("") )  ===  JP(""" ["1","2","3","4"] """)  }
+	  { (sources | "array" |+ Js("4")  |> JsUndefined("") )  ===  JP(""" ["1","2","3","4"] """) }
+	    
+	  
+	
 	  
 	  "survive joins" in 
 	  { ((sources | "object") |++  (sources | "object") |> JsUndefined(""))   ===  JP(""" {"een":1,"twee":2,"drie":3} """)  
@@ -346,6 +357,10 @@ class JsonTest extends Specification
 	    (sourcex |& ("number",0) |>> )  ===  J(42)
 	    (sourcex |& ("number",1) |>> )  ===  J(43)
 	    (sourcex |& ("number",2) |>> )  ===  J(42)
+	    (sourcex | List("object","een") |>> )  ===  J(1)
+	    (sourcex | List("membs",1,"age") |>> )  ===  J(43)
+	    (sourcex | List("membs","1","age") |>> )  ===  J(43)
+	    (sourcex | List("membs",true,"age") |>> )  ===  JsStack.nil
 	  }
 	  
 	  "survive array selections" in 
@@ -399,7 +414,12 @@ class JsonTest extends Specification
   	  
           
 	  "survive addition" in 
-	  { (sourcex | "array" |+ J("4")  |> JsUndefined("") )  ===  JP(""" ["1","2","3","4"] """)  }
+	  { (sourcex | "array" |+ J("4")  |> JsUndefined("") )  ===  JP(""" ["1","2","3","4"] """) 
+	    (sourcex | "object" |+? "drie"->J(4) |> JsUndefined("") )    ===  JP(""" { "een": 1, "twee": 2, "drie": 4 } """)
+	    (sourcex | "object" |+? "vier"->J(4) |> JsUndefined("") )    ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
+	    (sourcex | "object" |+!? "drie"->J(4) |> JsUndefined("") )   ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
+	    (sourcex | "object" |+!? "vier"->J(4) |> JsUndefined("") )   ===  JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4  } """) 	    
+	  }
 	  
 	  "survive joins" in 
 	  { ((sourcex | "object") |++  (sourcex | "object") |> JsUndefined(""))   ===  JP(""" {"een":1,"twee":2,"drie":3} """)  
