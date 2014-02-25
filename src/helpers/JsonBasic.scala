@@ -272,7 +272,7 @@ object JsonBasic
      *                        {"name": "Klaas", "age": 19, "id": false} ], 
      *           "number" : 43 } 
      *                         
-     *   json | "membs" |^ name  gives  ["Jan","Piet","Klaas"]    
+     *   json | "membs" |^ "name"  gives  ["Jan","Piet","Klaas"]    
      */
     def |^ (key: String): JsValue = js.peel(key) 
     def peel(key: String): JsArray = 
@@ -292,7 +292,7 @@ object JsonBasic
      * Tries to flattens an array. If the array consists of pure objects,
      * it is passed to flatObj with the keep parameter, otherwise it is
      * passed to flatArr with the keep parameter.  This operation 
-     * only works on arrays, application on other types in an error,
+     * only works on arrays, application on other types is an error,
      * and will result in an JsUndefined.
      */
     def |= (keep: Boolean) = flatten(keep)
@@ -629,7 +629,7 @@ object JsonBasic
         { if (seq.size==0) JsUndefined("Index on empty array") else seq(modulo(ind,seq.size)) }
         case _ => JsUndefined("Key select on non object or string on non array.") } }
        
-    /** TO TEST
+    /** MINIMALLY TESTED
      *  select multiple keys in succession at once.
      */
     def | [T](s: List[T]): JsValue = get(s)     
@@ -725,8 +725,17 @@ object JsonBasic
 //            JsArray( (seq.take(ins):+v) ++ seq.drop(ins+1) ) } }
             JsArray( (seq.updated(ins,v) )) } }
         case _ => JsUndefined("Element set to non array") } }
+    
+    /** TO TEST
+     * Simple replace function.
+     */
+    def |+ (f: JsValue => JsValue) = replace(f)
+    def replace(f: JsValue => JsValue): JsValue = f(js)
+    
+    def |+ (k: String,f: JsValue => JsValue) = replace(k,f)
+    def replace(k: String, f: JsValue => JsValue): JsValue =  addObj((k,f(js.get(k))))
 
-   /** MINIMALLY TESTED
+    /** MINIMALLY TESTED
      * Remove all elements with a particular value from the array
      * No action on empty arrays.
      */
@@ -856,19 +865,21 @@ object JsonBasic
         
     /**  MINIMALLY TESTED
      * Combine two JsObjects or two JsArrays. Combining only succeeds for such types
-     * in all other other situations the argument is ignored. Use like
+     * and in all other other situations the argument is ignored. Use like
      *   jsValue = jsValue1 ++ (jsValue2 | "key"->"value") 
      * adds all jsObjects that contain the pair ("key"->"value") in array jsValue2 to array jsValue1
      * Double keys are eliminated from both objects (even those only present in only on the operands) 
      * if unique is true (default) later keys overwrite former ones Thus, the operation |++ `{}`
      * will effectively remove all doubles. The last key in the second operand is the one that remains
      * in case of double keys. To keep all keys, use |&++
+     * For Arrays the same applies, but for that you usually want to keep the doubles, so use
+     * |&++ there. 
      */
     def |++ (jv: JsValue): JsValue = join(jv,true)
     def |&++ (jv: JsValue): JsValue = join(jv,false)
     def join(jv: JsValue, unique: Boolean): JsValue = 
     { (js,jv) match 
-      { case (JsArray(aseq), JsArray(bseq) ) => JsArray(aseq ++ bseq)
+      { case (JsArray(aseq), JsArray(bseq) ) => JsArray(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).distinct)
         case (JsObject(aseq),JsObject(bseq)) => JsObject(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).toMap.toSeq ) 
         case _ => JsUndefined("Join on incompatible json values") } } 
     

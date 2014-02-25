@@ -27,7 +27,10 @@ object JsonSpike
   import JsonBasic._
   
 
-  // LET OP: Als curr None is, dan is de rest ongeldig. 
+  // LET OP: Als curr None is, dan is de rest ongeldig. En waarom is dat? een Nil object kan toch
+  // best aan het einde van een boom zitten. Je kunt dan nog omhoog en hoeft niet alles verloren
+  // te zijn. Die moeten echter WEL ergens inzitten, dus of Nil objecten in een array of in een
+  // object aan een key vast. Hoe ga je dat dan printen?? Dode takken? Dat is wel erg gek.
   case class JsStack(private val curr: Option[JsValue], private val prev: Option[JsStack], private val ind: Int = 0)
   { private def test(f: JsStack => Boolean):  PairJx => Boolean     = (x) => f(x._2)
     private def unpack(vs:JsStack): JsValue                         = (vs.curr.head) 
@@ -46,7 +49,7 @@ object JsonSpike
     private def pack(kv: PairJ): PairJx                             = (kv._1, JsStack(kv._2))
     private def melt(f: JsStack => JsStack): PairJx => PairJx       = (x) => (x._1,f(x._2))
 
-    private def act(f: (JsValue => JsValue)): JsStack               =  if (curr.isEmpty) this else pack(f(curr.head)) 
+    //private def act(f: (JsValue => JsValue)): JsStack               =  if (curr.isEmpty) this else pack(f(curr.head)) 
     private def inf[T](f: (JsValue => T), df: T): T                 =  if (curr.isEmpty) df else f(curr.head)
            
     private def strip(jsNew: Option[JsValue], jss: Option[JsStack], inx: List[Int]): JsStack =
@@ -110,10 +113,11 @@ object JsonSpike
     
     private def joinAction(jssNew: JsStack, unique: Boolean): JsStack =
     { (jssNew,this) match
-      { case (JsStack(Some(JsObject(bseq)),_,_),JsStack(Some(JsObject(aseq)),prevJn,indOld)) =>  
+      { case ( JsStack(None,_,_), _) => this
+        case ( JsStack(Some(JsObject(bseq)),_,_), JsStack(Some(JsObject(aseq)),prevJn,indOld) ) =>  
           strip(Some(JsObject(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).toMap.toSeq)),prevJn,List(indOld))
-        case (JsStack(Some(JsArray(bseq)),_,_),JsStack(Some(JsArray(aseq)),prevJn,indOld)) =>  
-          strip(Some(JsArray((aseq ++ bseq))),prevJn,List(indOld))
+        case ( JsStack(Some(JsArray(bseq)),_,_), JsStack(Some(JsArray(aseq)),prevJn,indOld) ) =>  
+          strip(Some(JsArray(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).distinct)),prevJn,List(indOld))
         case _ => JsStack.nil } }
     
     private def isNil[T](pvs: PairJx): Boolean        =  pvs._2.isNil
@@ -203,6 +207,13 @@ object JsonSpike
           case None      => d } }
       if (curr == None) 0 else depth(this,1) } 
      
+    /** MINIMALLY TESTED
+     * Use toJv without parameters to return to the standard JsValue when you have no 
+     * reasonable default to use, or for printing purposes. Otherwise provide 
+     * a default with "to JsNull" or so.
+     */
+    override def toString(): String = if (isNil) "nil" else Json.stringify(curr.head)
+
     /** MINIMALLY TESTED
      * Use toJv without parameters to return to the standard JsValue when you have no 
      * reasonable default to use, or for printing purposes. Otherwise provide 
@@ -420,19 +431,86 @@ object JsonSpike
      *                        {"name": "Klaas", "age": 19, "id": false} ], 
      *           "number" : 43 } 
      *                         
-     *   json | "array"  |* { js => `{}` |+ "val"-> js }   gives  [{"val":"1"},{"val":"2"},{"val":"3"}]   
-     *   json | "object" |* { js => j(js.toStr+"s") }      gives  {"een":"1s","twee":"2s","drie":"3s"}  
-     *   json | "number" |* { js => `{}` |+ "answer"->js } gives  {"answer":42} 
+     *   json | "array"  |* { js => `{}` |+ "val"-> js }   |>  gives json with array replaced by [{"val":"1"},{"val":"2"},{"val":"3"}]   
+     *   json | "object" |* { js => j(js.toStr+"s") }      |> gives json with object replaced by  {"een":"1s","twee":"2s","drie":"3s"}  
+     *   json | "number" |* { js => `{}` |+ "answer"->js } |> gives json with number replaced by  {"answer":42} 
      * 
      */
     def |* (f: JsStack => JsStack): JsStack = map(f) 
     def map(f: JsStack => JsStack): JsStack =
     { if (isNil) this
-      else curr.head match
-      { case JsObject(seq) => pack( JsObject(seq map (melt(f) compose pack)  filterNot (isNil(_)) map ( unpack(_) )) )
-        case JsArray(seq)  => pack( JsArray(seq map (f compose pack) filterNot (_.isNil) map ( unpack(_) ) ) )
-        case j : JsValue   => f(pack(j)) } } 
+      else this match
+      { case JsStack(Some(JsObject(seq)),prevJn,ind) => strip( Some(JsObject(seq map (melt(f) compose pack) filterNot (isNil(_)) map ( unpack(_) ))),prevJn,List(ind))
+        case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray(seq map (f compose pack) filterNot (_.isNil) map ( unpack(_) ) )),prevJn,List(ind) )
+        case JsStack(Some(j),prevJn,ind)             => strip( f(pack(j)).curr,prevJn,List(ind) ) } } 
+ 
 
+    
+    /**  MINIMALLY TESTED
+     * Construct an array of JsValues by selecting those values corresponding
+     * to the keys in objects of the originating JsArray. To obtain a list[T]
+     * of all values use: peel(key).toList[String]. It sort of 'lifts the JsArray 
+     * one 'up'. Use like
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "membs" |^ "name"  gives  ["Jan","Piet","Klaas"]    
+     */
+    def |^ (key: String): JsStack                       = peel(key)
+    def peel(key: String): JsStack = 
+    { if (isNil) this
+      else this match
+      { case JsStack(Some(JsArray(seq)),prevJn,ind)  => 
+        { strip( Some( seq.foldLeft(JsArray(Nil))( 
+          { case (li,JsObject(jo)) => 
+            { jo.toMap get(key) match
+              { case Some(jvs) => li :+ jvs 
+                case None      => li } }
+            case (li,_)            => li } )),prevJn,List(ind) ) }
+        case _                                       => JsStack.nil } }  
+        
+    /**   MINIMALLY TESTED
+     * Construct an JsObject of JsValues by selecting those values corresponding
+     * to the keys in objects of the originating JsArray. The values obtained by 
+     * keykey are plainly converted to String. Use like
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "membs" |^ ("name","age")  gives  {"Jan":23,"Piet":43,"Klaas":19}   
+     */
+    def |^ (keykey: String, valkey: String): JsStack    = peel(keykey,valkey)
+    def peel(keykey: String, valkey: String): JsStack   = 
+    { if (isNil) this
+      else this match
+      { case JsStack(Some(JsArray(seq)),prevJn,ind)  => 
+        { strip( Some(JsObject(seq.foldLeft(Seq[PairJ]())( 
+          { case (mp,JsObject(jol)) =>
+            { val jom = jol.toMap
+              (jom.get(keykey),jom.get(valkey))  match
+              { case (Some(kkr),Some(vkr)) => mp :+ (kkr.toStr,vkr)
+                case _                     => mp } }
+            case (mp,_)             => mp } ) )),prevJn,List(ind) ) }
+        case JsStack(Some(j),prevJn,ind)             => strip( Some(JsObject(Nil)),prevJn,List(ind) ) } } 
+    
+    
     /** MINIMALLY TESTED
      * Construct a map of pairs by inspecting an array of JsValues.
      */
@@ -469,6 +547,83 @@ object JsonSpike
       	      case _ => mp } }
 	        case (mp,_) => mp } )
 	      case _ => leeg } }   
+ 
+    
+    /** MINIMALLY TESTED
+     * Tries to flattens an array. If the array consists of pure objects,
+     * it is passed to flatObj with the keep parameter, otherwise it is
+     * passed to flatArr with the keep parameter.  This operation 
+     * only works on arrays, otherwise a JsStack.nil is returned
+     * 
+     *  json = { "number" : 42,
+     *           "string" : "FooBar",
+     *           "object" : { "een": 1, "twee": 2, "drie": 3 },
+     *           "array"  : ["1","2","3"],
+     *           "numbs"  : [ {"een": "1"} ,   {"twee": "2"} ,   {"drie":"3"} ], 
+     *           "words"  : [ {"een": "one"} , {"twee": "two"} , {"drie":"three"} ],
+     *           "membs"  : [ {"name": "Jan",  "age": 23, "id": true}, 
+     *                        {"name": "Piet", "age": 43, "id": true}, 
+     *                        {"name": "Klaas", "age": 19, "id": false} ], 
+     *           "number" : 43 } 
+     *                         
+     *   json | "numbs"  |= false |>            gives the json with numbs replaced by  {"een": "1", "twee": "2", "drie":"3"}  
+     */
+    def |= (keep: Boolean) = flatten(keep)
+    def flatten(keep: Boolean): JsStack = 
+    { if (isNil) this
+      else this match
+      { case JsStack(Some(JsArray(seq)),_,_)  => 
+        { val pureObject = seq.forall( 
+          { case JsObject(jo) => true; 
+            case _ => false;  } )
+          if (pureObject) flatObj(keep) else flatArr(keep) }
+        case _                                => JsStack.nil } } 
+
+    
+    /** TO TEST
+     * Transform an array of array's into one flat array. If an array 
+     * contains a mixture of objects and other values, these are removed.
+     * Primitives can be kept upon request.
+     * This operation 
+     * only works on arrays, application on other types in an error,
+     * and will result in an JsUndefined. Note that at object
+     * construction multiple identical keys may arise.
+     * 
+     */
+    def flatArr(keepPrimitive: Boolean): JsStack = 
+    { if (isNil) this
+      else this match
+      { case JsStack(Some(JsArray(seq)),prevJn,ind)  => 
+        { strip( Some( seq.foldLeft(JsArray(Nil))( 
+          { case (JsArray(jl),JsArray(ja)) => JsArray(jl ++ ja)
+            case (ajl,JsObject(jo))        => ajl  
+            case (JsArray(jl),js)          => if (keepPrimitive) JsArray(jl :+ js) else JsArray(jl) } 
+        )),prevJn,List(ind) ) }
+        case _                                       => JsStack.nil } } 
+
+    /** TO TEST
+     * Transform an array of objects into one object. If an array contains
+     * a mixture of objects and other values like arrays these are
+     * removed. This operation only works on arrays, application on 
+     * other types is an error, and will result in an JsUndefined. 
+     * Note that at object construction multiple identical keys may arise,
+     * there are all (!) removed, unless requested otherwise.
+     */
+    def flatObj(keepMultipleKeys: Boolean): JsStack = 
+    { if (isNil) this
+      else this match
+      { case JsStack(Some(JsArray(seq)),prevJn,ind)  => 
+        { strip( Some(
+          { val res = seq.foldLeft(JsObject(Nil))( 
+            { case (JsObject(jl),JsObject(jo))  => JsObject(jl ++ jo)
+              case (ojl,_)                      => ojl } )
+            if (keepMultipleKeys) res else
+            { val JsObject(seq) = res
+              val keys = seq.map(_._1)
+              val unique = seq.filter( {case (k,v) => (keys.indexOf(k) == keys.lastIndexOf(k)) } )
+              JsObject(unique) } }),prevJn,List(ind) ) }
+        case _                                       => JsStack.nil } } 
+  
     
     /** MINIMALLY TESTED
      * Apply a filter JsValues => Boolean on every value of the argument
@@ -498,8 +653,25 @@ object JsonSpike
       { case JsObject(seq) => pack(JsObject(seq filter (test(f) compose pack) ) )
         case JsArray(seq)  => pack(JsArray(seq filter (f compose pack)))
         case js : JsValue  => pack(JsBoolean(f(pack(js)))) } }     
+
+    /** TO TEST
+     * Simple replace function.
+     */
+    def |+ (f: JsStack => JsStack) = replace(f)
+    def replace(f: JsStack => JsStack): JsStack = 
+    {  this match
+      { case JsStack(None,_,_)           => f(this)
+        case JsStack(Some(j),prevJn,ind) => strip( f(this).curr,prevJn,List(ind) ) } }
     
-   
+    /** TO TEST
+     * Simple key, replace function.
+     */
+    def |+ (k: String, f: JsStack => JsStack) = replace(k,f)
+    def replace(k: String, f: JsStack => JsStack): JsStack = 
+    {  this match
+      { case JsStack(None,_,_)           => this
+        case JsStack(Some(j),prevJn,ind) => addObj((k,f(this.get(k,0))))  } }
+    
     /** MINIMALLY TESTED
      * Use isNil to test if there are any JsValues in this list.
      */
@@ -584,19 +756,6 @@ object JsonSpike
 
     def ||&>(implicit fjs: Reads[String]): List[String]          = toKeyValList(fjs)
     def toKeyValList(implicit fjs: Reads[String]): List[String]  = inf(j => j.toKeyValList(fjs),Nil)
-
-    def |^ (key: String): JsStack                       = peel(key)
-    def |^ (keykey: String, valkey: String): JsStack    = peel(keykey,valkey)
-    def peel(key: String): JsStack                      = act(j => j.peel(key))
-    def peel(keykey: String, valkey: String): JsStack   = act(j => j.peel(keykey,valkey))
-
-
-    
-    def |= (keep: Boolean)                              = flatten(keep)
-    def flatten(keep: Boolean): JsStack                 = act(j => j.flatten(keep))
-    def flatArr(keepPrimitive: Boolean): JsStack        = act(j => j.flatArr(keepPrimitive))
-    def flatObj(keepMultipleKeys: Boolean): JsStack     = act(j => j.flatObj(keepMultipleKeys))
-
     
     def |*>[T](f: JsStack => T): List[T]                = map(f)
     def map[T](f: JsStack => T): List[T]                = inf(j => j.map(f compose pack),Nil) 
@@ -616,6 +775,9 @@ object JsonSpike
     def |+? (kv: PairJx): JsStack                       = addObjWhen(kv,true)
     def |+!? (kv: PairJx): JsStack                      = addObjWhen(kv,false)
         
+
+    
+    
     def addArr(lvs: (Int,JsStack)): JsStack  =  attachToArray(lvs._2,lvs._1,true)  
     def setArr(lvs: (Int,JsStack)): JsStack  =  attachToArray(lvs._2,lvs._1,false)
     

@@ -31,6 +31,7 @@ object jsConstants
                               { "name": "Piet", "age": 43, "id": true}, 
                               { "name": "Klaas", "age": 19, "id": false} ], 
                  "number" : 43 } """) 
+  val SourceCopy=JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
                                              
   val resMoveUp  = JP(""" {"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"one"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":2},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43} """)
   val resPointr  = JP(""" {"number":42,"string":"Boe","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":1.1},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43} """)
@@ -38,6 +39,20 @@ object jsConstants
   val resMulti1  = JP(""" {"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}]} """)
   val resMulti2  = JP(""" {"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43} """)
 
+  val valresMap1 = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":[{"val":"1"},{"val":"2"},{"val":"3"}],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
+  val valresMap2 = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":"1s","twee":"2s","drie":"3s"},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
+  val valresMap3 = JP("""{"number":{"answer":42},"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
+
+  val valresPeel1 = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":["Jan","Piet","Klaas"],"number":43}""")
+  val valresPeel2 = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":{"Jan":23,"Piet":43,"Klaas":19},"number":43}""")
+
+  val valresFlat1 = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":{"een": "1", "twee": "2", "drie":"3"},"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
+
+
+
+ 
+  
+  
 	val resMan1 = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3","4"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
 	val resMan2 = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["4","1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
 	val resMan3 = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","4","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
@@ -133,7 +148,8 @@ class JsonTest extends Specification
 	  "survive joins" in 
 	  { ((source | "object") |++ (source | "object") )   ===  JP(""" {"een":1,"twee":2,"drie":3} """)  
 	    ((source | "object") |&++ (source | "object") )  ===  JP(""" {"een":1,"twee":2,"drie":3, "een":1,"twee":2,"drie":3} """)  
-	    ((source | "array") |++ (source | "array") )     ===  JP(""" ["1","2","3","1","2","3"] """)  
+	    ((source | "array") |++ (source | "array") )     ===  JP(""" ["1","2","3"] """)  
+	    ((source | "array") |&++ (source | "array") )     ===  JP(""" ["1","2","3","1","2","3"] """)  
 	    }
 
 	  "survive peelings" in 
@@ -275,7 +291,8 @@ class JsonTest extends Specification
 	  "survive joins" in 
 	  { ((sources | "object") |++  (sources | "object") |> JsUndefined(""))   ===  JP(""" {"een":1,"twee":2,"drie":3} """)  
 	    ((sources | "object") |&++ (sources | "object")  |> JsUndefined(""))  ===  JP(""" {"een":1,"twee":2,"drie":3, "een":1,"twee":2,"drie":3} """)  
-	    ((sources | "array")  |++  (sources | "array")  |> JsUndefined(""))     ===  JP(""" ["1","2","3","1","2","3"] """)  
+	    ((sources | "array")  |++  (sources | "array")  |> JsUndefined(""))     ===  JP(""" ["1","2","3"] """)  
+	    ((sources | "array")  |&++  (sources | "array")  |> JsUndefined(""))     ===  JP(""" ["1","2","3","1","2","3"] """)  
 	    }
 
 	  "survive peelings" in 
@@ -386,8 +403,8 @@ class JsonTest extends Specification
       (sourcex | "object" |%+ ("een",0)->J(4) |>> )  ===  JsStack( JP(""" { "een": 4, "twee": 2, "drie": 3 } """))
       (sourcex | "object" |%+ ("een",1)->J(4) |>> )  ===  JsStack( JP(""" { "een": 4, "twee": 2, "drie": 3 } """))
       (sourcex |- "number")           ===  JsStack( resMulti0)
-      (sourcex |- "number"->J(43))   ===  JsStack( resMulti1)
-      (sourcex |- "number"->J(42))   ===  JsStack( resMulti2)
+      (sourcex |- "number"->J(43))    ===  JsStack( resMulti1)
+      (sourcex |- "number"->J(42))    ===  JsStack( resMulti2)
       (sourcex |- ("number",1) )      ===  JsStack( resMulti1)
       (sourcex |- ("number",0) )      ===  JsStack( resMulti2)
 	  }
@@ -404,17 +421,17 @@ class JsonTest extends Specification
       (sourcex | "array" |%+ 2->J("4") |> )   ===  JsStack( resMan8) 
       (sourcex | "array" |%+ 3->J("4") |> )   ===  JsStack( resMan6) 
       (sourcex | "array" |%+ -1->J("4") |> )  ===  JsStack( resMan8) 
-      (sourcex | "array" |- 0 |> )             ===  JsStack( resMan9) 
-      (sourcex | "array" |- 1 |> )             ===  JsStack( resManA) 
-      (sourcex | "array" |- 2 |> )             ===  JsStack( resManB) 
-      (sourcex | "array" |- -1 |> )            ===  JsStack( resManB) 
+      (sourcex | "array" |- 0 |> )            ===  JsStack( resMan9) 
+      (sourcex | "array" |- 1 |> )            ===  JsStack( resManA) 
+      (sourcex | "array" |- 2 |> )            ===  JsStack( resManB) 
+      (sourcex | "array" |- -1 |> )           ===  JsStack( resManB) 
       (sourcex | "array" |- J("2") |> )       ===  JsStack( resManA) 
 	  }
 
   	  
           
 	  "survive addition" in 
-	  { (sourcex | "array" |+ J("4")  |> JsUndefined("") )  ===  JP(""" ["1","2","3","4"] """) 
+	  { (sourcex | "array" |+ J("4")  |> JsUndefined("") )           ===  JP(""" ["1","2","3","4"] """) 
 	    (sourcex | "object" |+? "drie"->J(4) |> JsUndefined("") )    ===  JP(""" { "een": 1, "twee": 2, "drie": 4 } """)
 	    (sourcex | "object" |+? "vier"->J(4) |> JsUndefined("") )    ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
 	    (sourcex | "object" |+!? "drie"->J(4) |> JsUndefined("") )   ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
@@ -424,18 +441,29 @@ class JsonTest extends Specification
 	  "survive joins" in 
 	  { ((sourcex | "object") |++  (sourcex | "object") |> JsUndefined(""))   ===  JP(""" {"een":1,"twee":2,"drie":3} """)  
 	    ((sourcex | "object") |&++ (sourcex | "object")  |> JsUndefined(""))  ===  JP(""" {"een":1,"twee":2,"drie":3, "een":1,"twee":2,"drie":3} """)  
-	    ((sourcex | "array")  |++  (sourcex | "array")  |> JsUndefined(""))     ===  JP(""" ["1","2","3","1","2","3"] """)  
+	    ((sourcex | "array")  |++  (sourcex | "array")  |> JsUndefined(""))   ===  JP(""" ["1","2","3"] """)
+	    ((sourcex | "array")  |&++  (sourcex | "array")  |> JsUndefined(""))   ===  JP(""" ["1","2","3","1","2","3"] """)
 	    }
 
 	  "survive peelings" in 
-	  { (sourcex | "membs" |^ "name"  |> JsUndefined(""))          ===  JP(""" ["Jan","Piet","Klaas"] """)   
-	    (sourcex | "membs" |^ ("name","age") |> JsUndefined(""))   ===  JP(""" {"Jan":23,"Piet":43,"Klaas":19} """) }
+	  { (sourcex | "membs" |^ "name"         |> )    === ! valresPeel1
+	    (sourcex | "membs" |^ ("name","age") |> )    === ! valresPeel2
+	    (sourcex | "membs" |^ "name"         |>> )   === ! JP(""" ["Jan","Piet","Klaas"] """)   
+	    (sourcex | "membs" |^ ("name","age") |>> )   === ! JP(""" {"Jan":23,"Piet":43,"Klaas":19} """) }
+	  
+	  "survive flattening" in 
+	  { (sourcex | "numbs"  |= false |>  )    === ! valresFlat1
+
+	  }
 	  
 	  "survive mapping" in 
-	  { ((sourcex | "array"  |* { js => (`!{}` |+ "val"-> js) } ) |> JsUndefined(""))       ===  JP(""" [{"val":"1"},{"val":"2"},{"val":"3"}] """) 
-      ((sourcex | "object" |* { js => J(js.toStr+"s") })  |> JsUndefined(""))        ===  JP(""" {"een":"1s","twee":"2s","drie":"3s"} """)
-      ((sourcex | "number" |* { js => (`!{}` |+ "answer"->js) })  |> JsUndefined(""))   ===  JP(""" {"answer":42} """) 
-      (((sourcex | "membs") |!* (_|"name"|>>,_|"age"|>>,_|"id"|>false))  )    ===  (Map(J("Jan") -> J(23), J("Piet") -> J(43)))
+	  { ((sourcex | "array"  |* { js => (`!{}` |+ "val"-> js) } )   |>  )  ===  ! valresMap1
+      ((sourcex | "object" |* { js => J(js.toStr+"s") })          |>  )  ===  ! valresMap2
+      ((sourcex | "number" |* { js => (`!{}` |+ "answer"->js) })  |>  )  ===  ! valresMap3
+      ((sourcex | "array"  |* { js => (`!{}` |+ "val"-> js) } )   |>> )  ===  ! JP(""" [{"val":"1"},{"val":"2"},{"val":"3"}] """) 
+      ((sourcex | "object" |* { js => J(js.toStr+"s") })          |>> )  ===  ! JP(""" {"een":"1s","twee":"2s","drie":"3s"} """)
+      ((sourcex | "number" |* { js => (`!{}` |+ "answer"->js) })  |>> )  ===  ! JP(""" {"answer":42} """) 
+      (((sourcex | "membs") |!* (_|"name"|>>,_|"age"|>>,_|"id"|>false))  )   ===  (Map(J("Jan") -> J(23), J("Piet") -> J(43)))
       (((sourcex | "membs") |!*> (_|"name"|>>,_|"age"|>>,_|"id"|>false)) )   ===  (Map("Jan" -> "23", "Piet" -> "43"))
 	  }
 
