@@ -701,7 +701,6 @@ object JsonBasic
       js match 
       { case JsArray(seq) => 
         { val ins = modulo(loc,seq.size+1) 
-//          JsArray( (seq.take(ins):+v) ++ seq.drop(ins) ) } 
           JsArray( (seq.insert(ins,v) )) } 
         case _ => JsUndefined("Element added on non array") } }
     
@@ -722,7 +721,6 @@ object JsonBasic
       { case JsArray(seq) => 
         { if (seq.size==0) JsArray(Seq(js,v)) else
           { val ins = modulo(loc,seq.size) 
-//            JsArray( (seq.take(ins):+v) ++ seq.drop(ins+1) ) } }
             JsArray( (seq.updated(ins,v) )) } }
         case _ => JsUndefined("Element set to non array") } }
     
@@ -756,7 +754,6 @@ object JsonBasic
       { case JsArray(seq) => 
         if (seq.isEmpty) js else 
         { val im = modulo(i,seq.size); 
-//          JsArray(seq.take(im)++seq.drop(im+1)) }
           JsArray(seq.cut(im)) }
         case _ => JsUndefined("Element delete on non array")} }
 

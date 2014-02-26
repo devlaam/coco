@@ -208,11 +208,10 @@ object JsonSpike
       if (curr == None) 0 else depth(this,1) } 
      
     /** MINIMALLY TESTED
-     * Use toJv without parameters to return to the standard JsValue when you have no 
-     * reasonable default to use, or for printing purposes. Otherwise provide 
-     * a default with "to JsNull" or so.
+     * Two possibilities to print the value
      */
     override def toString(): String = if (isNil) "nil" else Json.stringify(curr.head)
+    def toPretty(): String = if (isNil) "nil" else Json.prettyPrint(curr.head)
 
     /** MINIMALLY TESTED
      * Use toJv without parameters to return to the standard JsValue when you have no 
