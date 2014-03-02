@@ -646,12 +646,19 @@ object JsonSpike
      */
     def |  (fn: (JsStack => Boolean)): JsStack = filter(fn)
     def |! (fn: (JsStack => Boolean)): JsStack = filter( (x) => !fn(x) )  
+//    def filterX(f: JsStack => Boolean): JsStack =
+//    { if (isNil) JsStack.nil 
+//      else curr.head match
+//      { case JsObject(seq) => pack(JsObject(seq filter (test(f) compose pack) ) )
+//        case JsArray(seq)  => pack(JsArray(seq filter (f compose pack)))
+//        case js : JsValue  => pack(JsBoolean(f(pack(js)))) } }     
+
     def filter(f: JsStack => Boolean): JsStack =
-    { if (isNil) JsStack.nil 
-      else curr.head match
-      { case JsObject(seq) => pack(JsObject(seq filter (test(f) compose pack) ) )
-        case JsArray(seq)  => pack(JsArray(seq filter (f compose pack)))
-        case js : JsValue  => pack(JsBoolean(f(pack(js)))) } }     
+    { if (isNil) this
+      else this match
+      { case JsStack(Some(JsObject(seq)),prevJn,ind)  => strip( Some(JsObject(seq filter (test(f) compose pack) ) ),prevJn,List(ind))
+        case JsStack(Some(JsArray(seq)),prevJn,ind)   => strip( Some(JsArray(seq filter (f compose pack))),prevJn,List(ind))
+        case  JsStack(Some(j),prevJn,ind)             => strip( Some(JsBoolean(f(pack(j)))),prevJn,List(ind)) } }     
 
     /** TO TEST
      * Simple replace function.
@@ -744,7 +751,7 @@ object JsonSpike
     def toValList[T](implicit fjs: Reads[T]): List[T]    = inf(j => j.toValList(fjs),Nil) 
 
     def ||>[T](dflt: T)(implicit fjs: Reads[T]): List[T]        = toValList[T](dflt)(fjs)
-    def toValList[T](dflt: T)(implicit fjs: Reads[T]): List[T]  = inf(j => j.toValList(dflt)(fjs),List(dflt)) 
+    def toValList[T](dflt: T)(implicit fjs: Reads[T]): List[T]  = inf(j => j.toValList(dflt)(fjs),Nil) 
 
     def |!>[T](excl: T)(implicit fjs: Reads[T]): List[T]               = toValFilteredList[T](excl)(fjs) 
     def toValFilteredList[T](excl: T)(implicit fjs: Reads[T]): List[T] = inf(j => j.toValFilteredList(excl)(fjs),Nil)
@@ -774,6 +781,12 @@ object JsonSpike
     def |+? (kv: PairJx): JsStack                       = addObjWhen(kv,true)
     def |+!? (kv: PairJx): JsStack                      = addObjWhen(kv,false)
         
+     
+    def |~ (kk: (String,String)) : JsStack = rekey(kk)
+    def rekey(kk: (String,String)): JsStack =
+    { val (oldKey,newKey) = kk
+      val jCopy = get(oldKey)
+      delObj(oldKey,JsStack.nil,true,0). addObj(newKey->jCopy) } 
 
     
     

@@ -117,6 +117,8 @@ class JsonTest extends Specification
       (source |- "number"->j(42))   ===  (resMulti2)
       (source |- ("number",1) )   ===  (resMulti1)
       (source |- ("number",0) )   ===  (resMulti2)
+      (source |~ "object"->"subject" | "subject")  ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)     
+      (source |~ "array"->"subject"  | "subject")  ===  JP(""" ["1","2","3"] """)    
 	  }
 	  
 	  "survive array manipulations" in 
@@ -407,6 +409,8 @@ class JsonTest extends Specification
       (sourcex |- "number"->J(42))    ===  JsStack( resMulti2)
       (sourcex |- ("number",1) )      ===  JsStack( resMulti1)
       (sourcex |- ("number",0) )      ===  JsStack( resMulti2)
+      (sourcex |~ "object"->"subject" | "subject" |>>)  ===  JsStack(JP(""" { "een": 1, "twee": 2, "drie": 3 } """))   
+      (sourcex |~ "array"->"subject"  | "subject" |>>)  ===  JsStack(JP(""" ["1","2","3"] """))
 	  }
 	  
 

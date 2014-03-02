@@ -767,6 +767,16 @@ object JsonBasic
     
     
     /** MINIMALLY TESTED
+     * Give a key a new name. If that name is already taken, the 
+     * previous value is lost. 
+     */
+    def |~ (kk: (String,String)) : JsValue = rekey(kk)
+    def rekey(kk: (String,String)): JsValue =
+    { val (oldKey,newKey) = kk
+      val jCopy = js.get(oldKey)
+      js.delObj(oldKey,None,true,0). addObj(newKey->jCopy) } 
+    
+    /** MINIMALLY TESTED
      * Add a key,value pair to the object, if the key already
      * exists, it is replaced, multiple keys are deleted. A new
      * key is placed at the end. After return, the object is guaranteed
