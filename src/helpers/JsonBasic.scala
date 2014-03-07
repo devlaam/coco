@@ -443,13 +443,27 @@ object JsonBasic
      *   json | "membs"  |  { js => ((js|"age")|>0)>30 } gives  [{"name":"Piet","age":43, "id": true}]  
      *   json | "number" |  { js => js.to[Int](0)==42 }  gives  true  
      */
-    def |  (fn: (JsValue => Boolean)): JsValue = js.filter(fn)  
+    def |  (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs(fn)  
+    def |! (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs((x,y) => !fn(x,y))  
+    def |  (fn: (JsValue => Boolean)): JsValue = js.filter(fn)      
     def |! (fn: (JsValue => Boolean)): JsValue = js.filter( (x) => !fn(x) )  
+
+    /** MINIMALLY TESTED
+     *  Filter function solely based on value
+     */
     def filter(f: JsValue => Boolean): JsValue =
     { js match 
       { case JsObject(seq) => JsObject(seq filter { case (k,v) => f(v) })
         case JsArray(seq)  => JsArray(seq filter f)
         case js : JsValue => JsBoolean(f(js)) } }     
+
+    /** MINIMALLY TESTED
+     *  Filter function based on key and value
+     */
+    def filterPairs(f: (String,JsValue) => Boolean): JsValue =
+    { js match 
+      { case JsObject(seq) => JsObject(seq filter { p => f(p._1,p._2) })
+        case _  => JsUndefined("filterPairs on non object")} }     
 
     /** MINIMALLY TESTED
      * Select all pairs that equal kvs in the object or objects in array.

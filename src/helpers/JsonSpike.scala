@@ -644,21 +644,29 @@ object JsonSpike
      *   json | "membs"  |  { js => ((js|"age")|>0)>30 } gives  [{"name":"Piet","age":43, "id": true}]  
      *   json | "number" |  { js => js.to[Int](0)==42 }  gives  true  
      */
+    def |  (fn: (String,JsValue) => Boolean): JsStack   = filterPairs(fn)  
+    def |! (fn: (String,JsValue) => Boolean): JsStack   = filterPairs((x,y) => !fn(x,y))  
     def |  (fn: (JsStack => Boolean)): JsStack = filter(fn)
     def |! (fn: (JsStack => Boolean)): JsStack = filter( (x) => !fn(x) )  
-//    def filterX(f: JsStack => Boolean): JsStack =
-//    { if (isNil) JsStack.nil 
-//      else curr.head match
-//      { case JsObject(seq) => pack(JsObject(seq filter (test(f) compose pack) ) )
-//        case JsArray(seq)  => pack(JsArray(seq filter (f compose pack)))
-//        case js : JsValue  => pack(JsBoolean(f(pack(js)))) } }     
 
+    /** MINIMALLY TESTED
+     *  Filter function solely based on value
+     */
     def filter(f: JsStack => Boolean): JsStack =
     { if (isNil) this
       else this match
       { case JsStack(Some(JsObject(seq)),prevJn,ind)  => strip( Some(JsObject(seq filter (test(f) compose pack) ) ),prevJn,List(ind))
         case JsStack(Some(JsArray(seq)),prevJn,ind)   => strip( Some(JsArray(seq filter (f compose pack))),prevJn,List(ind))
         case  JsStack(Some(j),prevJn,ind)             => strip( Some(JsBoolean(f(pack(j)))),prevJn,List(ind)) } }     
+
+    /** MINIMALLY TESTED
+     *  Filter function based on key and value
+     */
+    def filterPairs(f: (String,JsValue) => Boolean): JsStack =
+    { if (isNil) this
+      else this match
+      { case JsStack(Some(JsObject(seq)),prevJn,ind)  => strip( Some(JsObject(seq filter (f.tupled) ) ),prevJn,List(ind))
+        case _                                        => JsStack.nil } }     
 
     /** TO TEST
      * Simple replace function.

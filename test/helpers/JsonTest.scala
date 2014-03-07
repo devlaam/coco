@@ -165,11 +165,13 @@ class JsonTest extends Specification
       ((source | "membs") |!* (_|"name",_|"age",_|"id"|>false))    ===  (Map(j("Jan") -> j(23), j("Piet") -> j(43)))
       ((source | "membs") |!*> (_|"name",_|"age",_|"id"|>false))   ===  (Map("Jan" -> "23", "Piet" -> "43"))
 	  }
-
+ 
 	  "survive filters" in 
 	  { (source | "object" |! { js => js.to[Int](0)<2})     ===  JP(""" {"twee":2,"drie":3} """) 
       (source | "number" |  { js => js.to[Int](0)==42 })  ===  (JsBoolean(true)) 
-	    (source | "membs"  |  { js => ((js|"age")|>0)>30 }) ===  JP(""" [{"name":"Piet","age":43, "id":true}] """) }
+	    (source | "membs"  |  { js => ((js|"age")|>0)>30 }) ===  JP(""" [{"name":"Piet","age":43, "id":true}] """)
+	    (source |  { (k,js) => (js.isEmpty) })              ===  JP(""" {"empobj" : {},"emparr" : [] } """) 
+	    (source |  { (k,js) => (k=="number") })             ===  JP(""" {"number" : 42,"number" : 43} """) }
 	  
 	  "survive greppers" in 
 	  { (source | "membs" | ("id"->j(false)) )    ===  JP(""" [{"name":"Klaas","age":19,"id":false}] """)   
@@ -472,9 +474,12 @@ class JsonTest extends Specification
 	  }
 
 	  "survive filters" in 
-	  { (sourcex | "object" |! { js => js.lastTo[Int](0)<2} |> JsUndefined(""))    ===  JP(""" {"twee":2,"drie":3} """) 
+	  { (sourcex | "object" |! { js => js.lastTo[Int](0)<2} |> JsUndefined(""))     ===  JP(""" {"twee":2,"drie":3} """) 
       (sourcex | "number" |  { js => js.lastTo[Int](0)==42 } |> JsUndefined(""))  ===  (JsBoolean(true)) 
-	    (sourcex | "membs"  |  { js => ((js|"age")|>0)>30 } |> JsUndefined("")) ===  JP(""" [{"name":"Piet","age":43, "id":true}] """) }
+	    (sourcex | "membs"  |  { js => ((js|"age")|>0)>30 } |> JsUndefined(""))     ===  JP(""" [{"name":"Piet","age":43, "id":true}] """) 
+ 	    (sourcex |  { (k,js) => (js.isEmpty) })              ===  ! JP(""" {"empobj" : {},"emparr" : [] } """) 
+	    (sourcex |  { (k,js) => (k=="number") })             ===  ! JP(""" {"number" : 42,"number" : 43} """) }
+
 	  
 	  "survive greppers" in 
 	  { ((sourcex | "membs" | ("id"->J(false)) ) |> JsUndefined(""))   ===  JP(""" [{"name":"Klaas","age":19,"id":false}] """)   
