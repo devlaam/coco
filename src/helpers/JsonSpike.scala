@@ -375,8 +375,6 @@ object JsonSpike
     /** MINIMALLY TESTED
      * Select all pairs that equal kvs in the object or objects in array.
      * that posses and kvs pair. This operation is gives an emty trail on simple types.
-     * Note: Since you construct a new object, modifications to this object and its
-     * children do not travel upwards to its parents. 
      * 
      *  json = { "number" : 42,
      *           "string" : "FooBar",
@@ -394,10 +392,10 @@ object JsonSpike
     def |  (kvs: PairJx): JsStack = grep(kvs)   
     def grep(kvs: PairJx): JsStack = 
     { if ( isNil || isNil(kvs) ) JsStack.nil 
-      else curr.head match
-      { case JsObject(seq) => pack(JsObject(seq filter ( _ == unpack(kvs) )))
-        case JsArray(seq)  => pack(JsArray( seq filter ( _.hasPair(unpack(kvs)) )))
-        case _             => JsStack.nil } }    
+      else this match
+      { case JsStack(Some(JsObject(seq)),prevJn,ind) => strip( Some(JsObject(seq filter ( _ == unpack(kvs) ))),prevJn,List(ind))
+        case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray( seq filter ( _.hasPair(unpack(kvs)) ))),prevJn,List(ind) )
+        case _                                       => JsStack.nil } } 
 
     /** MINIMALLY TESTED
      * Dismiss all pairs that equal kvs in the object or objects in array.
@@ -406,11 +404,11 @@ object JsonSpike
      */
     def |! (kvs: PairJx): JsStack = grepNot(kvs) 
     def grepNot(kvs: PairJx): JsStack = 
-    { if ( (isNil) || isNil(kvs) ) JsStack.nil 
-      else curr.head match
-      { case JsObject(seq) => pack(JsObject(seq filterNot ( _ == unpack(kvs) )))
-        case JsArray(seq)  => pack(JsArray( seq filterNot ( _.hasPair(unpack(kvs)) )))
-        case _             => JsStack.nil } }    
+    { if ( isNil || isNil(kvs) ) JsStack.nil 
+      else this match
+      { case JsStack(Some(JsObject(seq)),prevJn,ind) => strip( Some(JsObject(seq filterNot ( _ == unpack(kvs) ))),prevJn,List(ind))
+        case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray( seq filterNot ( _.hasPair(unpack(kvs)) ))),prevJn,List(ind) )
+        case _                                       => JsStack.nil } } 
 
 
     /** MINIMALLY TESTED
