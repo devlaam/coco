@@ -29,6 +29,12 @@ object JsonBasic
   import JsonExtra._
   import JsonSpike._
   
+  
+  
+  protected case class JsValueConditionalHelp(b: Boolean, self: JsValue) 
+  { def || (t: JsValue => JsValue): JsValue                        =  { if (b) self.replace(t) else self } 
+    def || (t: JsValue => JsValue, f: JsValue => JsValue): JsValue =  { if (b) self.replace(t) else self.replace(f) } }
+    
   implicit class JsonOps(val js: JsValue) extends AnyVal 
   { 
     
@@ -746,7 +752,12 @@ object JsonBasic
     
     def |+ (k: String,f: JsValue => JsValue) = replace(k,f)
     def replace(k: String, f: JsValue => JsValue): JsValue =  addObj((k,f(js.get(k))))
-
+   
+   /** TO TEST
+     * Simple conditional replace
+     */
+    def |? (b: Boolean) =  new JsValueConditionalHelp(b,js) 
+  
     /** MINIMALLY TESTED
      * Remove all elements with a particular value from the array
      * No action on empty arrays.

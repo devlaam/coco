@@ -31,6 +31,12 @@ object JsonSpike
   // best aan het einde van een boom zitten. Je kunt dan nog omhoog en hoeft niet alles verloren
   // te zijn. Die moeten echter WEL ergens inzitten, dus of Nil objecten in een array of in een
   // object aan een key vast. Hoe ga je dat dan printen?? Dode takken? Dat is wel erg gek.
+  // De reden dat we dit willen is dat je in de constructie onmgelijke dingen kan doen,
+  // maar het eindresultaat kan wel bruikbaaar zijn. De |> operator zou alle dode takken
+  // eruit kunnen halen. 
+  // Het kan toch, we stoppen 'm gewoon nergens in, en zodra je dus naar 'boven' gaat
+  // (de enige logische optie) ben je er vanaf. Doe je dat niet dan krijg je nil terug.
+  // moet gaan.
   case class JsStack(private val curr: Option[JsValue], private val prev: Option[JsStack], private val ind: Int = 0)
   { private def test(f: JsStack => Boolean):  PairJx => Boolean     = (x) => f(x._2)
     private def unpack(vs:JsStack): JsValue                         = (vs.curr.head) 
@@ -674,6 +680,16 @@ object JsonSpike
     {  this match
       { case JsStack(None,_,_)           => f(this)
         case JsStack(Some(j),prevJn,ind) => strip( f(this).curr,prevJn,List(ind) ) } }
+
+    /** TO TEST
+     * Simple conditional replace
+     */
+    protected case class JsStackConditionalHelp(b: Boolean, self: JsStack) 
+    { def || (t: JsStack => JsStack): JsStack                        =  { if (b) self.replace(t) else self } 
+      def || (t: JsStack => JsStack, f: JsStack => JsStack): JsStack =  { if (b) self.replace(t) else self.replace(f) } }
+    
+    def |? (b: Boolean) =  new JsStackConditionalHelp(b,this) 
+    
     
     /** TO TEST
      * Simple key, replace function.
