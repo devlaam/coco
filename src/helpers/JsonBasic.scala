@@ -450,12 +450,16 @@ object JsonBasic
      *   json | "number" |  { js => js.to[Int](0)==42 }  gives  true
      */
     def |  (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs(fn)
-    def |! (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs((x,y) => !fn(x,y))
     def |  (fn: (JsValue => Boolean)): JsValue = js.filter(fn)
+
+    @deprecated("This will be removed","Use standard filter with manual negation.")
+    def |! (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs((x,y) => !fn(x,y))
+    @deprecated("This will be removed","Use standard filter with manual negation.")
     def |! (fn: (JsValue => Boolean)): JsValue = js.filter( (x) => !fn(x) )
 
     /** MINIMALLY TESTED
-     *  Filter function solely based on value
+     *  Filter function solely based on value. Only keep those values in an array
+     *  or object that fulfill the filter criteria.
      */
     def filter(f: JsValue => Boolean): JsValue =
     { js match
@@ -491,7 +495,8 @@ object JsonBasic
     def | (kv: PairJ): JsValue = js.grep(kv)
     def grep(kv: PairJ): JsValue =
     { js match
-      { case JsObject(seq) => JsObject(seq filter { case (k,v) => (k==kv._1 && v==kv._2) })
+      { //case JsObject(seq) => JsObject(seq filter { case (k,v) => (k==kv._1 && v==kv._2) })   // <== is dit wel logisch?, er blijft eigelijk maar een key in het object over!
+        case JsObject(seq) => if (seq.exists( { case (k,v) => (k == kv._1 && v == kv._2) } )) js else JsObject(Nil)
         case JsArray(seq)  => JsArray(seq filter { case (jo) => jo.hasPair(kv) })
         case _  => JsUndefined("Grep on simple type") } }
 
@@ -503,7 +508,8 @@ object JsonBasic
     def |! (kv: PairJ): JsValue = js.grepNot(kv)
     def grepNot(kv: PairJ): JsValue =
     { js match
-      { case JsObject(seq) => JsObject(seq filterNot { case (k,v) => (k==kv._1 && v==kv._2) })
+      { //case JsObject(seq) => JsObject(seq filterNot { case (k,v) => (k==kv._1 && v==kv._2) })
+        case JsObject(seq) => if (!seq.exists( { case (k,v) => (k == kv._1 && v == kv._2) } )) js else JsObject(Nil)
         case JsArray(seq)  => JsArray(seq filterNot { case (jo) => jo.hasPair(kv) })
         case _  => JsUndefined("Grep on simple type") } }
 

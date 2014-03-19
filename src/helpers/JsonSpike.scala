@@ -399,7 +399,7 @@ object JsonSpike
     def grep(kvs: PairJx): JsStack =
     { if ( isNil || isNil(kvs) ) JsStack.nil
       else this match
-      { case JsStack(Some(JsObject(seq)),prevJn,ind) => strip( Some(JsObject(seq filter ( _ == unpack(kvs) ))),prevJn,List(ind))
+      { case JsStack(Some(JsObject(seq)),prevJn,ind) => if (hasPair(kvs)) this else strip( Some(JsObject(Nil)),prevJn,List(ind))
         case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray( seq filter ( _.hasPair(unpack(kvs)) ))),prevJn,List(ind) )
         case _                                       => JsStack.nil } }
 
@@ -412,7 +412,7 @@ object JsonSpike
     def grepNot(kvs: PairJx): JsStack =
     { if ( isNil || isNil(kvs) ) JsStack.nil
       else this match
-      { case JsStack(Some(JsObject(seq)),prevJn,ind) => strip( Some(JsObject(seq filterNot ( _ == unpack(kvs) ))),prevJn,List(ind))
+      { case JsStack(Some(JsObject(seq)),prevJn,ind) => if (!hasPair(kvs)) this else strip( Some(JsObject(Nil)),prevJn,List(ind))
         case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray( seq filterNot ( _.hasPair(unpack(kvs)) ))),prevJn,List(ind) )
         case _                                       => JsStack.nil } }
 
@@ -649,8 +649,10 @@ object JsonSpike
      *   json | "number" |  { js => js.to[Int](0)==42 }  gives  true
      */
     def |  (fn: (String,JsValue) => Boolean): JsStack   = filterPairs(fn)
-    def |! (fn: (String,JsValue) => Boolean): JsStack   = filterPairs((x,y) => !fn(x,y))
     def |  (fn: (JsStack => Boolean)): JsStack = filter(fn)
+    @deprecated("This will be removed","Use standard filter with manual negation.")
+    def |! (fn: (String,JsValue) => Boolean): JsStack   = filterPairs((x,y) => !fn(x,y))
+    @deprecated("This will be removed","Use standard filter with manual negation.")
     def |! (fn: (JsStack => Boolean)): JsStack = filter( (x) => !fn(x) )
 
     /** MINIMALLY TESTED
