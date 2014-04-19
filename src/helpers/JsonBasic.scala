@@ -291,6 +291,21 @@ object JsonBasic
           case (li,_)  => li } )
         case _ => JsArray(Nil) } }
 
+    /**  MINIMALLY TESTED
+     * Construct an array of JsValues by selecting those values corresponding
+     * to the element number in arrays of the originating JsArray. It sort of
+     * 'lifts the JsArray one 'up'. None existing elements are skipped.
+     */
+    def |^ (i: Int): JsValue =   js.peel(i)
+    def peel(i: Int): JsArray =
+    { js match
+      { case JsArray(seq) => seq.foldLeft(JsArray(Nil))(
+        { case (li,JsArray(ja)) =>
+          { ja.lift(i)  match
+            { case Some(jvs) => li :+ jvs
+              case None => li } }
+          case (li,_)  => li } )
+        case _ => JsArray(Nil) } }
 
 
 
@@ -379,7 +394,6 @@ object JsonBasic
               case _ => mp } }
           case (mp,_) => mp } )
         case _ => Seq[PairJ]() } ) }
-
 
     /** MINIMALLY TESTED
      * Apply a function JsValue => JsValue on every value of the argument

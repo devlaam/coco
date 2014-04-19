@@ -85,7 +85,7 @@ object JsonSpike
     private def attachToObject(jssNew: JsStack, ind: Int, key: String, insert: Boolean, unique: Boolean, bePresent: Boolean, beAbsent: Boolean): JsStack =
     { val pi = if (insert) 0 else 1
       (jssNew,this) match
-      { case ( JsStack(None,_,_), _) => this
+      { case ( JsStack(None,_,_), _) => this // Note that this implies the the existing key,val is unchanged, this may be desired, but other actions (delete the key for example) may be expected too.
         case ( JsStack(Some(jsv),_,_) , JsStack(Some(JsObject(so)),prevJn,indOld) )  =>
         { val kCnt = so.count (_._1 == key)
           val iMod = if (unique || kCnt==0) 0 else modulo(ind,kCnt+(1-pi))
@@ -468,7 +468,7 @@ object JsonSpike
      *
      *   json | "membs" |^ "name"  gives  ["Jan","Piet","Klaas"]
      */
-    def |^ (key: String): JsStack                       = peel(key)
+    def |^ (key: String): JsStack  = peel(key)
     def peel(key: String): JsStack =
     { if (isNil) this
       else this match
@@ -481,7 +481,25 @@ object JsonSpike
             case (li,_)            => li } )),prevJn,List(ind) ) }
         case _                                       => JsStack.nil } }
 
-    /**   MINIMALLY TESTED
+    /**  MINIMALLY TESTED
+     * Construct an array of JsValues by selecting those values corresponding
+     * to the element number in arrays of the originating JsArray. It sort of
+     * 'lifts the JsArray one 'up'. None existing elements are skipped.
+     */
+    def |^ (i: Int): JsStack  = peel(i)
+    def peel(i: Int): JsStack =
+    { if (isNil) this
+      else this match
+      { case JsStack(Some(JsArray(seq)),prevJn,ind)  =>
+        { strip( Some( seq.foldLeft(JsArray(Nil))(
+          { case (li,JsArray(ja)) =>
+            { ja.lift(i) match
+              { case Some(jvs) => li :+ jvs
+                case None      => li } }
+            case (li,_)            => li } )),prevJn,List(ind) ) }
+        case _                                       => JsStack.nil } }
+
+   /**   MINIMALLY TESTED
      * Construct an JsObject of JsValues by selecting those values corresponding
      * to the keys in objects of the originating JsArray. The values obtained by
      * keykey are plainly converted to String. Use like
