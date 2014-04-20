@@ -668,10 +668,10 @@ object JsonSpike
      */
     def |  (fn: (String,JsValue) => Boolean): JsStack   = filterPairs(fn)
     def |  (fn: (JsStack => Boolean)): JsStack = filter(fn)
-    @deprecated("This will be removed","Use standard filter with manual negation.")
-    def |! (fn: (String,JsValue) => Boolean): JsStack   = filterPairs((x,y) => !fn(x,y))
-    @deprecated("This will be removed","Use standard filter with manual negation.")
-    def |! (fn: (JsStack => Boolean)): JsStack = filter( (x) => !fn(x) )
+//    @deprecated("This will be removed","Use standard filter with manual negation.")
+//    def |! (fn: (String,JsValue) => Boolean): JsStack   = filterPairs((x,y) => !fn(x,y))
+//    @deprecated("This will be removed","Use standard filter with manual negation.")
+//    def |! (fn: (JsStack => Boolean)): JsStack = filter( (x) => !fn(x) )
 
     /** MINIMALLY TESTED
      *  Filter function solely based on value

@@ -26,7 +26,6 @@ import play.api.libs.json._
 
 object JsonBasic
 { import JsonLib._
-  import JsonExtra._
   import JsonSpike._
 
 
@@ -43,7 +42,6 @@ object JsonBasic
      * toJvl is the accompanying method.
      */
     def unary_! = toJvx
-    def toJvs   = JsValues(List(js))
     def toJvx   = JsStack(js)
 
     /** TO TEST
@@ -198,6 +196,7 @@ object JsonBasic
 	      case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
 	      case _ => List[T]() } }
 
+    @deprecated("This will be removed","Use standard casts with manual filter for unwanted values.")
     def |!>[T](excl: T)(implicit fjs: Reads[T]): List[T] = js.toValFilteredList[T](excl)(fjs)
     def toValFilteredList[T](excl: T)(implicit fjs: Reads[T]): List[T] =
     { def succ(l:List[T],v:T) = if (v != excl) l:+v else l
@@ -459,17 +458,17 @@ object JsonBasic
      *                        {"name": "Klaas", "age": 19, "id": false} ],
      *           "number" : 43 }
      *
-     *   json | "object" |! { js => js.to[Int](0)<2 }    gives  {"twee":2,"drie":3}
+     *   json | "object" |  { js => js.to[Int](0)>=2 }   gives  {"twee":2,"drie":3}
      *   json | "membs"  |  { js => ((js|"age")|>0)>30 } gives  [{"name":"Piet","age":43, "id": true}]
      *   json | "number" |  { js => js.to[Int](0)==42 }  gives  true
      */
     def |  (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs(fn)
     def |  (fn: (JsValue => Boolean)): JsValue = js.filter(fn)
 
-    @deprecated("This will be removed","Use standard filter with manual negation.")
-    def |! (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs((x,y) => !fn(x,y))
-    @deprecated("This will be removed","Use standard filter with manual negation.")
-    def |! (fn: (JsValue => Boolean)): JsValue = js.filter( (x) => !fn(x) )
+//    @deprecated("This will be removed","Use standard filter with manual negation.")
+//    def |! (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs((x,y) => !fn(x,y))
+//    @deprecated("This will be removed","Use standard filter with manual negation.")
+//    def |! (fn: (JsValue => Boolean)): JsValue = js.filter( (x) => !fn(x) )
 
     /** MINIMALLY TESTED
      *  Filter function solely based on value. Only keep those values in an array

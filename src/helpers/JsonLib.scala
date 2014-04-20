@@ -26,7 +26,6 @@ import play.api.libs.json._
 object JsonLib
 {
   import JsonBasic._
-  import JsonExtra._
   import JsonSpike._
 
   /**
@@ -34,7 +33,6 @@ object JsonLib
    */
   val `{}` = JsObject(Nil)
   val `[]` = JsArray(Nil)
-  val `()` = JsValues(Nil)
   val `!{}` = JsStack(JsObject(Nil))
   val `![]` = JsStack(JsArray(Nil))
 
@@ -44,8 +42,6 @@ object JsonLib
    * cast to JsValue and capital J to cast to JsValues.
    */
   def j[T](x: T)(implicit fjs: Writes[T]): JsValue  = Json.toJson[T](x)(fjs)
-  def J[T](x: JsValues): JsValues = x
-  def Js[T](x: T)(implicit fjs: Writes[T]): JsValues = j(x)(fjs) toJvs
   def J[T](x: T)(implicit fjs: Writes[T]): JsStack = JsStack(j(x)(fjs))
 
 
@@ -61,19 +57,6 @@ object JsonLib
           { case (JsSuccess(jst,_),JsSuccess(jss,_)) => mss + (jst->jss)
             case (_,_) =>  mss  } }
         else mss } } ) }
-
-  /**
-   *  Helper function to cast a map of JsValues,JsValues to anything you need.
-   *  Empty, invalid or non readable JsValues are simply ignored.
-   */
-  def toMapJvs[T,S](map : Map[JsValues,JsValues])(implicit fjt: Reads[T],fjs: Reads[S]): Map[T,S] =
-  { map.foldLeft(Map[T,S]())(
-    { case (mss,(jvlKey,jvlVal)) =>
-      { if ((jvlKey.isFilled) && (jvlVal.isFilled))
-        { (fjt.reads(jvlKey.list.head),fjs.reads(jvlVal.list.head)) match
-          { case (JsSuccess(jst,_),JsSuccess(jss,_)) => mss + (jst->jss)
-            case (_,_) => mss } }
-        else mss} } ) }
 
 
   // Question: how do you combine both identical methods below into one
@@ -95,13 +78,6 @@ object JsonLib
   /**
    * Try to make a map of some sensible strings from the underlying types.
    */
-  def toMapSSS(map : Map[JsValues,JsValues]): Map[String,String] =
-  { map.foldLeft(Map[String,String]())(
-    { case (mss,(jvlKey,jvlVal)) =>
-      { if ((jvlKey.isFilled) && (jvlVal.isFilled))
-        { mss + (jvlKey.toStr->jvlVal.toStr) }
-        else  mss } } ) }
-
   def toMapSSX(map : Map[JsStack,JsStack]): Map[String,String] =
   { map.foldLeft(Map[String,String]())(
     { case (mss,(jvlKey,jvlVal)) =>
@@ -162,7 +138,6 @@ object JsonLib
    */
   type Pair[T]  = (String,T)
   type PairJ  = Pair[JsValue]
-  type PairJs = Pair[JsValues]
   type PairJx = Pair[JsStack]
 
   /**
@@ -174,6 +149,5 @@ object JsonLib
    * third element in an array when none are present, the nil list
    * is returned. All selections on nil lists return nil lists.
    */
-
 
 }
