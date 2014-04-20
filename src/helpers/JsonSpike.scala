@@ -20,6 +20,7 @@
 package helpers
 
 import scala.language.postfixOps
+import scala.collection.immutable.HashSet
 import play.api.libs.json._
 
 object JsonSpike
@@ -681,7 +682,34 @@ object JsonSpike
       else this match
       { case JsStack(Some(JsObject(seq)),prevJn,ind)  => strip( Some(JsObject(seq filter (test(f) compose pack) ) ),prevJn,List(ind))
         case JsStack(Some(JsArray(seq)),prevJn,ind)   => strip( Some(JsArray(seq filter (f compose pack))),prevJn,List(ind))
-        case  JsStack(Some(j),prevJn,ind)             => strip( Some(JsBoolean(f(pack(j)))),prevJn,List(ind)) } }
+        case JsStack(Some(j),prevJn,ind)              => strip( Some(JsBoolean(f(pack(j)))),prevJn,List(ind)) } }
+
+    /**
+     *  Ensure the resulting object or array is distinct with respect to the outcome
+     *  of the function. Simple values are always unique and therefore unaltered.
+     *  Functions that result in Nil result in that element being discarded.
+     *  Note, the function returned value can be anything, and does not have to be
+     *  a part of the original object. Use this to filter for example on unique
+     *  word length etc. Only the 'head' of the returned JsStack is used in the
+     *  comparisson, and not the whole manipulation history, so there is no need
+     *  to use the |>> before returning the function result.
+     */
+    def |!  (fn: (JsStack => JsStack)): JsStack = distinct(fn)
+    def distinct(f: JsStack => JsStack): JsStack =
+    { if (isNil) this
+      else this match
+      { case JsStack(Some(JsObject(seq)),prevJn,ind)  =>
+          strip( Some( JsObject(seq.foldLeft((HashSet[JsValue](),Seq[(String,JsValue)]()))
+              ( { case ((i,c),(k,v)) =>
+                  { val fv=f(pack(v));
+                    if (fv.isNil || i.contains(unpack(fv))) (i,c) else (i + unpack(fv),c:+(k,v)) }}  )._2 )),prevJn,List(ind))
+        case JsStack(Some(JsArray(seq)),prevJn,ind)   =>
+          strip( Some(JsArray(seq.foldLeft((HashSet[JsValue](),Seq[JsValue]()))
+              ( { case ((i,c),v)     =>
+                  { val fv=f(pack(v));
+                    if (fv.isNil || i.contains(unpack(fv))) (i,c) else (i + unpack(fv),c:+v) }}  )._2 )),prevJn,List(ind))
+        case _                                        => this } }
+
 
     /** MINIMALLY TESTED
      *  Filter function based on key and value
@@ -712,7 +740,10 @@ object JsonSpike
 
 
     /** TO TEST
-     * Simple key, replace function.
+     * Simple key, replace function. Get the current value for a key, and replaces
+     * it with the returned value of the function. If the function returns Nil, the
+     * object is not modified (so a the original value is left as is). If the key does
+     * not exists it is added, and the function is called with Nil as argument.
      */
     def |+ (k: String, f: JsStack => JsStack) = replace(k,f)
     def replace(k: String, f: JsStack => JsStack): JsStack =

@@ -21,6 +21,7 @@ package helpers
 
 
 import scala.language.postfixOps
+import scala.collection.immutable.HashSet
 import play.api.libs.json._
 
 
@@ -196,7 +197,10 @@ object JsonBasic
 	      case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
 	      case _ => List[T]() } }
 
-    @deprecated("This will be removed","Use standard casts with manual filter for unwanted values.")
+    /**
+     * Use this if you do not have a specific default, and/or want specific values
+     * not to appear in the list.
+     */
     def |!>[T](excl: T)(implicit fjs: Reads[T]): List[T] = js.toValFilteredList[T](excl)(fjs)
     def toValFilteredList[T](excl: T)(implicit fjs: Reads[T]): List[T] =
     { def succ(l:List[T],v:T) = if (v != excl) l:+v else l
@@ -480,13 +484,33 @@ object JsonBasic
         case JsArray(seq)  => JsArray(seq filter f)
         case js : JsValue => JsBoolean(f(js)) } }
 
+
+    /** MINIMALLY TESTED
+     *  Ensure the resulting object or array is distinct with respect to the outcome
+     *  of the function. Simple values are always unique and therefore unaltered.
+     *  Note, the function returned value can be anything, and does not have to be
+     *  a part of the original object. Use this to filter for example on unique
+     *  word length etc.
+     */
+    // We should have an O(1) lookup list. I cannot confirm that a IndexedSeq has O(1)
+    // for addition of element as well as performing a contains. Why is that doc so unclear?
+    // So we go for HashSet.
+    def |!  (fn: (JsValue => JsValue)): JsValue = js.distinct(fn)
+    def distinct(f: JsValue => JsValue): JsValue =
+    { js match
+      { //case JsObject(seq) => JsObject(seq filter { case (k,v) => f(v) })
+        case JsObject(seq)  => JsObject(seq.foldLeft((HashSet[JsValue](),Seq[(String,JsValue)]()))( { case ((i,c),(k,v)) => { val fv=f(v); if (i.contains(fv)) (i,c) else (i + fv,c:+(k,v)) }})._2 )
+        case JsArray(seq)   => JsArray(seq.foldLeft((HashSet[JsValue](),Seq[JsValue]()))( { case ((i,c),v) => { val fv=f(v); if (i.contains(fv)) (i,c) else (i + fv,c:+v) }})._2 )
+        case _              => js } }
+
+
     /** MINIMALLY TESTED
      *  Filter function based on key and value
      */
     def filterPairs(f: (String,JsValue) => Boolean): JsValue =
     { js match
       { case JsObject(seq) => JsObject(seq filter { p => f(p._1,p._2) })
-        case _  => JsUndefined("filterPairs on non object")} }
+        case _  => JsUndefined("filterPairs on non object") } }
 
     /** MINIMALLY TESTED
      * Select all pairs that equal kvs in the object or objects in array.
