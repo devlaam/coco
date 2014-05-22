@@ -23,7 +23,7 @@ import scala.language.postfixOps
 import scala.collection.immutable.HashSet
 import play.api.libs.json._
 
-object JsonSpike
+object JsonStack
 { import JsonLib._
   import JsonBasic._
 

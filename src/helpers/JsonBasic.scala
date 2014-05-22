@@ -27,7 +27,7 @@ import play.api.libs.json._
 
 object JsonBasic
 { import JsonLib._
-  import JsonSpike._
+  import JsonStack._
 
 
 
