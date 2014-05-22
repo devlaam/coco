@@ -558,17 +558,17 @@ object JsonSpike
     def |^*>(keykey: String, valkey: String): Map[String,String]  = toMapSSX(peelMap(keykey,valkey))
     def |^*(keykey: String, valkey: String): Map[JsStack,JsStack] = peelMap(keykey,valkey)
     def peelMap(keykey: String, valkey: String): Map[JsStack,JsStack] =
-	  { val leeg = Map[JsStack,JsStack]()
+    { val leeg = Map[JsStack,JsStack]()
       if (isNil) leeg
       else curr.head match
       {  case JsArray(seq) => seq.foldLeft(leeg)(
-	      { case (mp,JsObject(jol)) =>
-	        { val jom = jol.toMap
-	          (jom.get(keykey),jom.get(valkey))  match
-	          { case (Some(kkr),Some(vkr)) => mp + (pack(kkr)->pack(vkr))
-      	      case _ => mp } }
-	        case (mp,_) => mp } )
-	      case _ => leeg } }
+        { case (mp,JsObject(jol)) =>
+          { val jom = jol.toMap
+            (jom.get(keykey),jom.get(valkey))  match
+            { case (Some(kkr),Some(vkr)) => mp + (pack(kkr)->pack(vkr))
+              case _ => mp } }
+          case (mp,_) => mp } )
+        case _ => leeg } }
 
 
     /** MINIMALLY TESTED
@@ -907,6 +907,13 @@ object JsonSpike
     def |??> (min: Long, max: Long, dflt: Long)                    = inf(j => j.valid(min,max,dflt),(false,dflt))
     def valid(dflt: String): (Boolean,String)                      = inf(j => j.valid(dflt),(false,dflt))
     def |??> (dflt: String)                                        = inf(j => j.valid(dflt),(false,dflt))
+
+    /** To TEST
+     * When comparing for equality we usually want to compare the current value
+     * and not the history of the json.
+     * */
+    def == (that: JsStack) = (this.curr == that.curr)
+    def != (that: JsStack) = (this.curr != that.curr)
   }
 
   object JsStack

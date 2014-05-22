@@ -186,16 +186,18 @@ object JsonBasic
       js match
             { case JsObject(seq) => listHelper(seq.map(_._2),succ,fail)(fjs)
               case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
-              case _ => List[T]() } }
+             // case _ => List[T]()
+              case _             => listHelper(Seq(js),succ,fail)(fjs) } }
 
     def ||>[T](dflt: T)(implicit fjs: Reads[T]): List[T] = js.toValList[T](dflt)(fjs)
     def toValList[T](dflt: T)(implicit fjs: Reads[T]): List[T] =
     { def succ(l:List[T],v:T) = l:+v
       def fail(l:List[T]) = l:+dflt
       js match
-	    { case JsObject(seq) => listHelper(seq.map(_._2),succ,fail)(fjs)
-	      case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
-	      case _ => List[T]() } }
+      { case JsObject(seq) => listHelper(seq.map(_._2),succ,fail)(fjs)
+        case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
+        //case _ => List[T]()
+        case _             => listHelper(Seq(js),succ,fail)(fjs) } }
 
     /**
      * Use this if you do not have a specific default, and/or want specific values
@@ -208,7 +210,8 @@ object JsonBasic
       js match
       { case JsObject(seq) => listHelper(seq.map(_._2),succ,fail)(fjs)
         case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
-        case _ => List[T]() } }
+        //case _ => List[T]()
+        case _             => listHelper(Seq(js),succ,fail)(fjs) } }
 
     def ||&>(implicit fjs: Reads[String]): List[String] = toKeyValList(fjs)
     def toKeyValList(implicit fjs: Reads[String]): List[String] =
@@ -254,15 +257,15 @@ object JsonBasic
    def |^*>(keykey: String, valkey: String): Map[String,String] = toMapSS(js.peelMap(keykey,valkey))
    def |^*(keykey: String, valkey: String): Map[JsValue,JsValue] = js.peelMap(keykey,valkey)
    def peelMap(keykey: String, valkey: String): Map[JsValue,JsValue] =
-	  { js match
-	    { case JsArray(seq) => seq.foldLeft(Map[JsValue,JsValue]())(
-	      { case (mp,JsObject(jol)) =>
-	        { val jom = jol.toMap
-	          (jom.get(keykey),jom.get(valkey))  match
-	          { case (Some(kkr),Some(vkr)) => mp + (kkr->vkr)
-      	      case _ => mp } }
-	        case (mp,_) => mp } )
-	      case _ => Map[JsValue,JsValue]() } }
+    { js match
+      { case JsArray(seq) => seq.foldLeft(Map[JsValue,JsValue]())(
+        { case (mp,JsObject(jol)) =>
+          { val jom = jol.toMap
+            (jom.get(keykey),jom.get(valkey))  match
+            { case (Some(kkr),Some(vkr)) => mp + (kkr->vkr)
+              case _ => mp } }
+          case (mp,_) => mp } )
+        case _ => Map[JsValue,JsValue]() } }
 
     /**  MINIMALLY TESTED
      * Construct an array of JsValues by selecting those values corresponding
@@ -941,7 +944,7 @@ object JsonBasic
     /**  MINIMALLY TESTED
      * Combine two JsObjects or two JsArrays. Combining only succeeds for such types
      * and in all other other situations the argument is ignored. Use like
-     *   jsValue = jsValue1 ++ (jsValue2 | "key"->"value")
+     *   jsValue = jsValue1 |++ (jsValue2 | "key"->"value")
      * adds all jsObjects that contain the pair ("key"->"value") in array jsValue2 to array jsValue1
      * Double keys are eliminated from both objects (even those only present in only on the operands)
      * if unique is true (default) later keys overwrite former ones Thus, the operation |++ `{}`
