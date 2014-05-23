@@ -21,12 +21,28 @@ package helpers
 
 
 import scala.language.postfixOps
+import scala.concurrent._
+import scala.concurrent.duration._
+import scala.language.postfixOps
+import ExecutionContext.Implicits.global
 import play.api.libs.json._
+
+trait JsconConnect
+{
+  protected def curr: Option[JsValue]
+  protected def prev: Option[JsStack]
+  protected def ind: Int
+  protected def attachToArray(jssNew: JsStack, ind: Int, insert: Boolean): JsStack
+  protected def attachToObject(jssNew: JsStack, ind: Int, key: String, insert: Boolean, unique: Boolean, bePresent: Boolean, beAbsent: Boolean): JsStack
+  protected def detachFromArray(ind: Int, jssRemove: JsStack, onInd: Boolean): JsStack
+
+
+}
 
 object JsonLib
 {
   import JsonBasic._
-  import JsonStack._
+  //import JsonStack._
 
   /**
    * Default objects for general use
@@ -44,6 +60,11 @@ object JsonLib
   def j[T](x: T)(implicit fjs: Writes[T]): JsValue  = Json.toJson[T](x)(fjs)
   def J[T](x: T)(implicit fjs: Writes[T]): JsStack = JsStack(j(x)(fjs))
 
+
+  /**
+   * Auxiliary function to collect the results of all futures.
+   */
+  def allFutures[T](fs: Seq[Future[T]]): Future[Seq[T]] = { fs.foldRight(Future(Seq[T]()))((f, flist) => f.flatMap(l => flist.map(ls => l +: ls))) }
 
   /**
    *  Helper function to cast a map of JsValue,JsValue to anything you need.
@@ -132,6 +153,10 @@ object JsonLib
   case object first extends JsPointer
   case object centre extends JsPointer
   case object last extends JsPointer
+
+
+  trait JsContext
+  { def open(s: String): JsFuture }
 
   /**
    * Helper types
