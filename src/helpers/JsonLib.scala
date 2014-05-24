@@ -49,8 +49,10 @@ object JsonLib
    */
   val `{}` = JsObject(Nil)
   val `[]` = JsArray(Nil)
-  val `!{}` = JsStack(JsObject(Nil))
-  val `![]` = JsStack(JsArray(Nil))
+  val `!{}` = JsStack(`{}`)
+  val `![]` = JsStack(`[]`)
+  val `@{}` = JsFuture(Future(`!{}`))
+  val `@[]` = JsFuture(Future(`![]`))
 
 
   /**
@@ -162,8 +164,9 @@ object JsonLib
    * Helper types
    */
   type Pair[T]  = (String,T)
-  type PairJ  = Pair[JsValue]
-  type PairJx = Pair[JsStack]
+  type PairJ    = Pair[JsValue]
+  type PairJx   = Pair[JsStack]
+  type PairJxf  = Pair[JsFuture]
 
   /**
    * Class used to operate on JsValues and keep track of modifications

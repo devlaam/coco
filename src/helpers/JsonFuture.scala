@@ -37,8 +37,11 @@ import ExecutionContext.Implicits.global
 
 case class JsFuture(private[helpers] val jsf: Future[JsStack])
 {
-  private def pack(project: JsStack => JsStack ): JsFuture = JsFuture(jsf.map(js => project(js)  ) )
-  private def flatPack(project: JsStack => Future[JsStack]): JsFuture = JsFuture(jsf.flatMap(js => project(js)  ) )
+  private def pack(pjt: JsStack => JsStack ): JsFuture = JsFuture(jsf.map(js => pjt(js)  ) )
+  private def pack(jv: JsFuture, pjt: (JsStack,JsStack) => JsStack): JsFuture = JsFuture(jsf.flatMap(js => jv.jsf.map(jt => pjt(js,jt)) ) )
+  //private def flatPack(pjt: JsStack => Future[JsStack]): JsFuture = JsFuture(jsf.flatMap(js => pjt(js)  ) )
+  private def fpack(pjt: JsStack => JsFuture): JsFuture = JsFuture(jsf.flatMap(js => pjt(js).jsf  ) )
+  private def fpack(jv: JsFuture, pjt: (JsStack,JsStack) => JsFuture): JsFuture = JsFuture(jsf.flatMap(js => jv.jsf.flatMap(jt => pjt(js,jt).jsf) ) )
 
   def |< (i: Int): JsFuture  = move(i)
   def move(i: Int): JsFuture = pack(js => if (i==0 || js.prev.isEmpty || js.curr.isEmpty) js else js.prev.head.move(i-1))
@@ -66,8 +69,8 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |>[T](dflt: T)(implicit fjs: Reads[T]): Future[T]         = lastTo(dflt)(fjs)
   def lastTo(dflt: JsValue): Future[JsValue]                    = jsf.map(js => js.curr.getOrElse(dflt))
   def lastTo[T](dflt: T)(implicit fjs: Reads[T]): Future[T]     = jsf.map(js => { if (js.curr.isEmpty) dflt else js.curr.head.to(dflt)(fjs) } )
-  def firstTo(fdflt: JsFuture): JsFuture                        = flatPack(js => fdflt.jsf.map(dflt => { val top = js.move(-1); if (top.isNil) dflt else top }))
-  def firstTo(dflt: JsStack): JsFuture                          = pack(js => { val top = js.move(-1); if (top.isNil) dflt else top })
+  def firstTo(fdflt: JsFuture): JsFuture                        = pack(fdflt, (js,jn) => js.firstTo(jn) )
+  def firstTo(dflt: JsStack): JsFuture                          = pack(js => js.firstTo(dflt) )
   def firstTo(dflt: JsValue): Future[JsValue]                   = jsf.map(_.move(-1).lastTo(dflt))
   def firstTo[T](dflt: T)(implicit fjs: Reads[T]): Future[T]    = jsf.map(_.move(-1).lastTo(dflt))
 
@@ -84,6 +87,9 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def | (p: JsPointer): JsFuture = get(p)
   def get(p: JsPointer): JsFuture = pack(_.get(p))
 
+  def |@ (get: String => JsFuture): JsFuture  = open(get)
+  def open(get: String => JsFuture): JsFuture = fpack(_.open(get))
+
   def |  (kvs: PairJx): JsFuture = grep(kvs)
   def grep(kvs: PairJx): JsFuture = pack(_.grep(kvs))
 
@@ -92,7 +98,6 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
 
   def |* (f: JsStack => JsStack): JsFuture = map(f)
   def map(f: JsStack => JsStack): JsFuture = pack(_.map(f))
-  //def map(f: JsStack => JsFuture): JsFuture = flatPack(_.map(f))
 
   def |^ (key: String): JsFuture  = peel(key)
   def peel(key: String): JsFuture = pack(_.peel(key))
@@ -135,7 +140,21 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   { def || (t: JsStack => JsStack): JsFuture                        =  { if (b) self.replace(t) else self }
     def || (t: JsStack => JsStack, f: JsStack => JsStack): JsFuture =  { if (b) self.replace(t) else self.replace(f) } }
 
+  protected case class JsFutFutConditionalHelp(fb: Future[Boolean], self: JsFuture)
+  { def || (t: JsStack => JsStack): JsFuture                        =  JsFuture(fb.flatMap(b => if (b) self.replace(t).jsf else self.jsf  ))
+    def || (t: JsStack => JsStack, f: JsStack => JsStack): JsFuture =  JsFuture(fb.flatMap(b => if (b) self.replace(t).jsf else self.replace(f).jsf )) }
+
   def |? (b: Boolean) =  new JsFutureConditionalHelp(b,this)
+  def |? (js: JsStack) =
+  { js match
+    { case  JsStack(Some(JsBoolean(b)),_,_) => new JsFutureConditionalHelp(b,this)
+      case _  => new JsFutureConditionalHelp(false,this) } }
+  def |? (jf: JsFuture) =
+  { val fb = jf.jsf.map(js =>
+    js match
+    { case  JsStack(Some(JsBoolean(b)),_,_) => b
+      case _  => false } )
+   JsFutFutConditionalHelp(fb,this) }
 
   def |+ (k: String, f: JsStack => JsStack) = replace(k,f)
   def replace(k: String, f: JsStack => JsStack): JsFuture = pack(_.replace(k,f))
@@ -144,6 +163,11 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
 
   def |?> = isFilled
   def isFilled: Future[Boolean] = jsf.map(_.isFilled)
+
+  def ?| (js: JsFuture) = alternative(js)
+  //def alternative (js: JsFuture) = flatPack(j => if (j.isFilled) jsf else js.jsf)
+  def alternative (js: JsFuture) = fpack(j => if (j.isFilled) this else js)
+
 
   def |?>(jvs: JsStack):  Future[Boolean] = contains(jvs)
   def contains(jvs: JsStack):  Future[Boolean]  = jsf.map(_.contains(jvs))
@@ -190,6 +214,10 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |+? (kv: PairJx): JsFuture                       = addObjWhen(kv,true)
   def |+!? (kv: PairJx): JsFuture                      = addObjWhen(kv,false)
 
+  def |+ (vs: JsFuture): JsFuture                      = addFutArr((-1,vs))
+  def |+ (kvs: PairJxf)(implicit d: DummyImplicit): JsFuture    = addFutObj(kvs)
+  def |+? (kv: PairJxf)(implicit d: DummyImplicit): JsFuture    = addFutObjWhen(kv,true)
+  def |+!? (kv: PairJxf)(implicit d: DummyImplicit): JsFuture   = addFutObjWhen(kv,false)
 
   def |~ (kk: (String,String)) : JsFuture = rekey(kk)
   def rekey(kk: (String,String)): JsFuture = pack(_.rekey(kk))
@@ -197,30 +225,49 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def addArr(lvs: (Int,JsStack)): JsFuture  =  pack(_.attachToArray(lvs._2,lvs._1,true))
   def setArr(lvs: (Int,JsStack)): JsFuture  =  pack(_.attachToArray(lvs._2,lvs._1,false))
 
+  def addFutArr(lvs: (Int,JsFuture)): JsFuture  =  pack(lvs._2, (js,jn) => js.attachToArray(jn,lvs._1,true))
+  def setFutArr(lvs: (Int,JsFuture)): JsFuture  =  pack(lvs._2, (js,jn) => js.attachToArray(jn,lvs._1,false))
+
   def |&+[T](lvs: (T,JsStack)): JsFuture =  pack(_.|&+(lvs))
   def |%+[T](lvs: (T,JsStack)): JsFuture =  pack(_.|%+(lvs))
+
+  def |&+[T](lvs: (T,JsFuture))(implicit d: DummyImplicit): JsFuture =  pack(lvs._2, (js,jn) => js.|&+((lvs._1,jn)))
+  def |%+[T](lvs: (T,JsFuture))(implicit d: DummyImplicit): JsFuture =  pack(lvs._2, (js,jn) => js.|%+((lvs._1,jn)))
 
   def addObj(kvs: PairJx): JsFuture                        = pack(_.attachToObject(kvs._2,-1,kvs._1,true,true,false,false))
   def addObj(kvs: PairJx, loc: Int): JsFuture              = pack(_.attachToObject(kvs._2,loc,kvs._1,true,false,false,false))
   def setObj(kvs: PairJx, loc: Int): JsFuture              = pack(_.attachToObject(kvs._2,loc,kvs._1,false,false,false,false))
   def addObjWhen(kvs: PairJx, present: Boolean): JsFuture  = pack(_.attachToObject(kvs._2,-1,kvs._1,true,true,present,!present))
 
-  def |-(s: String): JsFuture                           = delObj(s,JsStack.nil,true,0)
-  def |-(s: String, n: Int): JsFuture                   = delObj(s,JsStack.nil,false,n)
-  def |-(kv: PairJx): JsFuture                          = delObj(kv._1,kv._2,true,0)
+  def addFutObj(kvs: PairJxf): JsFuture                        = pack(kvs._2, (js,jn) => js.attachToObject(jn,-1,kvs._1,true,true,false,false))
+  def addFutObj(kvs: PairJxf, loc: Int): JsFuture              = pack(kvs._2, (js,jn) => js.attachToObject(jn,loc,kvs._1,true,false,false,false))
+  def setFutObj(kvs: PairJxf, loc: Int): JsFuture              = pack(kvs._2, (js,jn) => js.attachToObject(jn,loc,kvs._1,false,false,false,false))
+  def addFutObjWhen(kvs: PairJxf, present: Boolean): JsFuture  = pack(kvs._2, (js,jn) => js.attachToObject(jn,-1,kvs._1,true,true,present,!present))
+
+  def |-(s: String): JsFuture                               = delObj(s,JsStack.nil,true,0)
+  def |-(s: String, n: Int): JsFuture                       = delObj(s,JsStack.nil,false,n)
+  def |-(kv: PairJx): JsFuture                              = delObj(kv._1,kv._2,true,0)
+  def |-(kv: PairJxf)(implicit d: DummyImplicit): JsFuture  = delFutObj(kv._1,kv._2,true,0)
 
   def delObj(s: String, values: JsStack, all: Boolean, n: Int): JsFuture = pack(_.detachFromObject(s, values, n, all))
+  def delFutObj(s: String, values: JsFuture, all: Boolean, n: Int): JsFuture = pack(values, (js,jn) => js.detachFromObject(s, jn, n, all))
 
 
   def |-(i: Int): JsFuture                            = delArr(i)
   def |-(v: JsStack): JsFuture                        = delArr(v)
+  def |-(v: JsFuture): JsFuture                       = delFutArr(v)
+
   def delArr(i: Int): JsFuture                        = pack(_.detachFromArray(i,JsStack.nil,true))
   def delArr(vs: JsStack): JsFuture                   = pack(_.detachFromArray(0,vs,false))
+  def delFutArr(vs: JsFuture): JsFuture               = pack(vs, (js,jn) => js.detachFromArray(0,jn,false))
 
   def |++ (jvs: JsStack): JsFuture                    = join(jvs,true)
   def |&++ (jvs: JsStack): JsFuture                   = join(jvs,false)
+  def |++ (jvs: JsFuture): JsFuture                   = join(jvs,true)
+  def |&++ (jvs: JsFuture): JsFuture                  = join(jvs,false)
 
   def join(jvs: JsStack, unique: Boolean): JsFuture   = pack(_.joinAction(jvs,unique))
+  def join(jvs: JsFuture, unique: Boolean): JsFuture  = pack(jvs, (js,jn) => js.joinAction(jn,unique))
 
   def |??> (dflt: Boolean): Future[(Boolean,Boolean)]                   = valid(dflt)
   def valid(dflt: Boolean): Future[(Boolean,Boolean)]                   = jsf.map(_.valid(dflt))

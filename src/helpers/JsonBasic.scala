@@ -66,6 +66,16 @@ object JsonBasic
     def isFilled = !isEmpty
 
     /** TO TEST
+     *  Use this to select the first filled alternative in a row, or the
+     *  last when none is filled. Note that
+     *  the operator starts with a ?  thus preceding precedence, reducing the
+     *  need for ()
+     */
+    def ?| (js: JsValue) = alternative(js)
+    def alternative (jv: JsValue) = if (isFilled) this else jv
+
+
+    /** TO TEST
      * Check if an JsOject or JsArray contains a particular field of value:
      *   val b: Boolean = jsValue.contains(Json.parse"""{ "name": "klaas", "age": 23}""")
      * for simple types like JsString equality is tested
@@ -803,6 +813,12 @@ object JsonBasic
      * Simple conditional replace
      */
     def |? (b: Boolean) =  new JsValueConditionalHelp(b,js)
+    def |? (jv: JsValue) =
+    { jv match
+      { case JsBoolean(b) => new JsValueConditionalHelp(b,js)
+        case _  => new JsValueConditionalHelp(false,js) } }
+
+
 
     /** MINIMALLY TESTED
      * Remove all elements with a particular value from the array

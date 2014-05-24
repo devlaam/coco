@@ -41,6 +41,11 @@ import JsonBasic._
 // Het kan toch, we stoppen 'm gewoon nergens in, en zodra je dus naar 'boven' gaat
 // (de enige logische optie) ben je er vanaf. Doe je dat niet dan krijg je nil terug.
 // moet gaan.
+
+// Verder, hoe ga je om met een JsUndefined in de keten? Zou een JsUndefined niet
+// gewoon in een nil moeten overgaan. Dat is handig als het document ergens anders
+// 'vandaan' komt. Je zou een appart error veld in de JsStack kunnen opnemen.
+
 case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] val prev: Option[JsStack], private[helpers] val ind: Int = 0)
 { private def test(f: JsStack => Boolean):  PairJx => Boolean     = (x) => f(x._2)
   private def unpack(vs:JsStack): JsValue                         = (vs.curr.head)
@@ -236,6 +241,8 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    */
   def toJvl: JsStack = JsStack(curr,None,0)
 
+  def toJvf: JsFuture = JsFuture(Future(this))
+
   /** MINIMALLY TESTED
    * Normally you close a selection/modification with this operators, if you need the original
    * document, use |> if you need the last selection use |>> If you do not do so, you still
@@ -254,8 +261,10 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    * result in a nil. If the default is of the type JsValue or a primitive a cast is performed
    * to that type, should it fail the default is returned. Note: this also is about the first element
    */
-  def |>() = move(-1)
-  def |>>() = toJvl
+  def |>()   = move(-1)
+  def |>>()  = toJvl
+  def |@()   = toJvf
+  def |@>()  = toJvl.toJvf
 
   //Zouden we dit niet zo kunnen maken dat je dit |> gewoon kan weglaten? Dan zou
   // elk gebruik als parameter automatisch naar boven moeten fietsen. Dat lijkt
@@ -761,6 +770,10 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
     def || (t: JsStack => JsStack, f: JsStack => JsStack): JsStack =  { if (b) self.replace(t) else self.replace(f) } }
 
   def |? (b: Boolean) =  new JsStackConditionalHelp(b,this)
+  def |? (js: JsStack) =
+  { js match
+    { case  JsStack(Some(JsBoolean(b)),_,_) => new JsStackConditionalHelp(b,this)
+      case _  => new JsStackConditionalHelp(false,this) } }
 
 
   /** TO TEST
@@ -771,7 +784,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    */
   def |+ (k: String, f: JsStack => JsStack) = replace(k,f)
   def replace(k: String, f: JsStack => JsStack): JsStack =
-  {  this match
+  { this match
     { case JsStack(None,_,_)           => this
       case JsStack(Some(j),prevJn,ind) => addObj((k,f(this.get(k,0))))  } }
 
@@ -793,6 +806,13 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
   def |?> = isFilled
   def isFilled: Boolean = !isNil && !curr.head.isEmpty
 
+  /** TO TEST
+   *  Use this to select the first filled alternative in a row, or the
+   *  last when none is filled. Note that the operator starts with a ?
+   *  thus preceding precedence, reducing the need for extra  ()
+   */
+  def ?| (js: JsStack) = alternative(js)
+  def alternative (js: JsStack) = if (isFilled) this else js
 
   /** TO TEST
    * Check if an JsOject or JsArray contains a particular field of value:
