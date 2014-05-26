@@ -164,8 +164,9 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |?> = isFilled
   def isFilled: Future[Boolean] = jsf.map(_.isFilled)
 
+  def ?| (js: JsStack) = alternative(js)
   def ?| (js: JsFuture) = alternative(js)
-  //def alternative (js: JsFuture) = flatPack(j => if (j.isFilled) jsf else js.jsf)
+  def alternative (js: JsStack)  = pack(j => if (j.isFilled) j else js)
   def alternative (js: JsFuture) = fpack(j => if (j.isFilled) this else js)
 
 
