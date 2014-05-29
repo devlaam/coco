@@ -156,7 +156,7 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
       case _  => false } )
    JsFutFutConditionalHelp(fb,this) }
 
-  def |+ (k: String, f: JsStack => JsStack) = replace(k,f)
+  def |+ (kjj: PairJJx)(implicit d1: DummyImplicit, d2: DummyImplicit) = replace(kjj._1,kjj._2)
   def replace(k: String, f: JsStack => JsStack): JsFuture = pack(_.replace(k,f))
 
   def isNil: Future[Boolean] =  jsf.map(_.isNil)

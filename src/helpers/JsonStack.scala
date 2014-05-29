@@ -782,7 +782,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    * object is not modified (so a the original value is left as is). If the key does
    * not exists it is added, and the function is called with Nil as argument.
    */
-  def |+ (k: String, f: JsStack => JsStack) = replace(k,f)
+  def |+ (kjj: PairJJx)(implicit d: DummyImplicit) = replace(kjj._1,kjj._2)
   def replace(k: String, f: JsStack => JsStack): JsStack =
   { this match
     { case JsStack(None,_,_)           => this

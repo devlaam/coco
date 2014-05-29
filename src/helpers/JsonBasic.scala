@@ -806,7 +806,7 @@ object JsonBasic
     def |+ (f: JsValue => JsValue) = replace(f)
     def replace(f: JsValue => JsValue): JsValue = f(js)
 
-    def |+ (k: String,f: JsValue => JsValue) = replace(k,f)
+    def |+ (kjj: PairJJ)(implicit d: DummyImplicit) = replace(kjj._1,kjj._2)
     def replace(k: String, f: JsValue => JsValue): JsValue =  addObj((k,f(js.get(k))))
 
    /** TO TEST

@@ -167,6 +167,9 @@ object JsonLib
   type PairJ    = Pair[JsValue]
   type PairJx   = Pair[JsStack]
   type PairJxf  = Pair[JsFuture]
+  type PairJJ   = Pair[JsValue=>JsValue]
+  type PairJJx  = Pair[JsStack=>JsStack]
+  type PairJJf  = Pair[JsFuture=>JsFuture]
 
   /**
    * Class used to operate on JsValues and keep track of modifications
