@@ -128,8 +128,9 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
 
   def filter(f: JsStack => Boolean): JsFuture = pack(_.filter(f))
 
-  def |!  (fn: (JsStack => JsStack)): JsFuture = distinct(fn)
-  def distinct(f: JsStack => JsStack): JsFuture = pack(_.distinct(f))
+  def |/!  (fn: (JsStack => JsStack)): JsFuture = distinct(fn,false)
+  def |\!  (fn: (JsStack => JsStack)): JsFuture = distinct(fn,true)
+  def distinct(f: JsStack => JsStack, backwards: Boolean): JsFuture = pack(_.distinct(f,backwards))
 
   def filterPairs(f: (String,JsValue) => Boolean): JsFuture = pack(_.filterPairs(f))
 

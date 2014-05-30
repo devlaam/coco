@@ -47,9 +47,8 @@ object jsConstants
 
   val valresFlat1 = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":{"een": "1", "twee": "2", "drie":"3"},"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
 
-  val valresDist  = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
-
-
+  val valresDistF  = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
+  val valresDistB  = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
 
 
 
@@ -176,7 +175,8 @@ class JsonTest extends Specification
       (source | "membs"  |  { js => ((js|"age")|>0)>30 }) ===  JP(""" [{"name":"Piet","age":43, "id":true}] """)
       (source |  { (k,js) => (js.isEmpty) })              ===  JP(""" {"empobj" : {},"emparr" : [] } """)
       (source |  { (k,js) => (k=="number") })             ===  JP(""" {"number" : 42,"number" : 43} """)
-      (source | "membs" |! { js => (js|"id") } )         ===    JP(""" [ { "name": "Jan",  "age": 23, "id": true}, { "name": "Klaas", "age": 19, "id": false} ] """)
+      (source | "membs" |/! { js => (js|"id") } )         ===    JP(""" [ { "name": "Jan",  "age": 23, "id": true}, { "name": "Klaas", "age": 19, "id": false} ] """)
+      (source | "membs" |\! { js => (js|"id") } )         ===    JP(""" [ { "name": "Piet", "age": 43, "id": true}, { "name": "Klaas", "age": 19, "id": false} ] """)
 
 
 
@@ -350,7 +350,8 @@ class JsonTest extends Specification
       (sourcex | "membs"  |  { js => ((js|"age")|>0)>30 } |> JsUndefined(""))     ===  JP(""" [{"name":"Piet","age":43, "id":true}] """)
        (sourcex |  { (k,js) => (js.isEmpty) })              ===  ! JP(""" {"empobj" : {},"emparr" : [] } """)
       (sourcex |  { (k,js) => (k=="number") })             ===  ! JP(""" {"number" : 42,"number" : 43} """)
-      ((sourcex | "membs" |! { js => (js|"id") } ) |> )    ===  ! valresDist
+      ((sourcex | "membs" |/! { js => (js|"id") } ) |> )    ===  ! valresDistF
+      ((sourcex | "membs" |\! { js => (js|"id") } ) |> )    ===  ! valresDistB
 
     }
 

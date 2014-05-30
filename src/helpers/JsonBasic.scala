@@ -508,12 +508,15 @@ object JsonBasic
     // We should have an O(1) lookup list. I cannot confirm that a IndexedSeq has O(1)
     // for addition of element as well as performing a contains. Why is that doc so unclear?
     // So we go for HashSet.
-    def |!  (fn: (JsValue => JsValue)): JsValue = js.distinct(fn)
-    def distinct(f: JsValue => JsValue): JsValue =
-    { js match
+    def |/!  (fn: (JsValue => JsValue)): JsValue = js.distinct(fn,false)
+    def |\!  (fn: (JsValue => JsValue)): JsValue = js.distinct(fn,true)
+    def distinct(f: JsValue => JsValue, backwards: Boolean): JsValue =
+    { (js,backwards) match
       { //case JsObject(seq) => JsObject(seq filter { case (k,v) => f(v) })
-        case JsObject(seq)  => JsObject(seq.foldLeft((HashSet[JsValue](),Seq[(String,JsValue)]()))( { case ((i,c),(k,v)) => { val fv=f(v); if (i.contains(fv)) (i,c) else (i + fv,c:+(k,v)) }})._2 )
-        case JsArray(seq)   => JsArray(seq.foldLeft((HashSet[JsValue](),Seq[JsValue]()))( { case ((i,c),v) => { val fv=f(v); if (i.contains(fv)) (i,c) else (i + fv,c:+v) }})._2 )
+        case (JsObject(seq),false) => JsObject(seq.foldLeft((HashSet[JsValue](),Seq[(String,JsValue)]()))( { case ((i,c),(k,v)) => { val fv=f(v); if (i.contains(fv)) (i,c) else (i + fv,c:+(k,v)) }})._2 )
+        case (JsObject(seq),true)  => JsObject(seq.foldRight((HashSet[JsValue](),Seq[(String,JsValue)]()))( { case ((k,v),(i,c)) => { val fv=f(v); if (i.contains(fv)) (i,c) else (i + fv,(k,v)+:c) }})._2 )
+        case (JsArray(seq),false)  => JsArray(seq.foldLeft((HashSet[JsValue](),Seq[JsValue]()))( { case ((i,c),v) => { val fv=f(v); if (i.contains(fv)) (i,c) else (i + fv,c:+v) }})._2 )
+        case (JsArray(seq),true)   => JsArray(seq.foldRight((HashSet[JsValue](),Seq[JsValue]()))( { case (v,(i,c)) => { val fv=f(v); if (i.contains(fv)) (i,c) else (i + fv,v+:c) }})._2 )
         case _              => js } }
 
 

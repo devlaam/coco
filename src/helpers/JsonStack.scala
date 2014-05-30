@@ -727,20 +727,31 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    *  comparisson, and not the whole manipulation history, so there is no need
    *  to use the |>> before returning the function result.
    */
-  def |!  (fn: (JsStack => JsStack)): JsStack = distinct(fn)
-  def distinct(f: JsStack => JsStack): JsStack =
+  def |/!  (fn: (JsStack => JsStack)): JsStack = distinct(fn,false)
+  def |\!  (fn: (JsStack => JsStack)): JsStack = distinct(fn,true)
+  def distinct(f: JsStack => JsStack, backwards: Boolean): JsStack =
   { if (isNil) this
-    else this match
-    { case JsStack(Some(JsObject(seq)),prevJn,ind)  =>
+    else (this,backwards) match
+    { case (JsStack(Some(JsObject(seq)),prevJn,ind),false)  =>
         strip( Some( JsObject(seq.foldLeft((HashSet[JsValue](),Seq[(String,JsValue)]()))
             ( { case ((i,c),(k,v)) =>
                 { val fv=f(pack(v));
                   if (fv.isNil || i.contains(unpack(fv))) (i,c) else (i + unpack(fv),c:+(k,v)) }}  )._2 )),prevJn,List(ind))
-      case JsStack(Some(JsArray(seq)),prevJn,ind)   =>
+      case (JsStack(Some(JsObject(seq)),prevJn,ind),true)  =>
+        strip( Some( JsObject(seq.foldRight((HashSet[JsValue](),Seq[(String,JsValue)]()))
+            ( { case ((k,v),(i,c)) =>
+                { val fv=f(pack(v));
+                  if (fv.isNil || i.contains(unpack(fv))) (i,c) else (i + unpack(fv),(k,v)+:c) }}  )._2 )),prevJn,List(ind))
+      case (JsStack(Some(JsArray(seq)),prevJn,ind),false)   =>
         strip( Some(JsArray(seq.foldLeft((HashSet[JsValue](),Seq[JsValue]()))
             ( { case ((i,c),v)     =>
                 { val fv=f(pack(v));
                   if (fv.isNil || i.contains(unpack(fv))) (i,c) else (i + unpack(fv),c:+v) }}  )._2 )),prevJn,List(ind))
+      case (JsStack(Some(JsArray(seq)),prevJn,ind),true)   =>
+        strip( Some(JsArray(seq.foldRight((HashSet[JsValue](),Seq[JsValue]()))
+            ( { case (v,(i,c))     =>
+                { val fv=f(pack(v));
+                  if (fv.isNil || i.contains(unpack(fv))) (i,c) else (i + unpack(fv),v+:c) }}  )._2 )),prevJn,List(ind))
       case _                                        => this } }
 
 
