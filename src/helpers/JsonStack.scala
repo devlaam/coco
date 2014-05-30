@@ -208,7 +208,8 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
     else p match
     { case `first`  => move(-1)
       case `centre` => move(length/2)
-      case `last`   => JsStack(curr,None,0) } }
+      case `last`   => JsStack(curr,None,0)
+      case `up`     => move(1) } }
 
   /** TO TEST
    * Return the depth of the present selection. A value zero
@@ -769,7 +770,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    */
   def |+ (f: JsStack => JsStack) = replace(f)
   def replace(f: JsStack => JsStack): JsStack =
-  {  this match
+  { this match
     { case JsStack(None,_,_)           => f(this)
       case JsStack(Some(j),prevJn,ind) => strip( f(this).curr,prevJn,List(ind) ) } }
 
@@ -973,4 +974,11 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
 
 object JsStack
 { def nil = JsStack(None,None,0)
-  def apply(jv: JsValue): JsStack = new JsStack(Some(jv),None,0) }
+  def apply(jv: JsValue): JsStack = new JsStack(Some(jv),None,0)
+
+  implicit class JsStackOps[T](val ff: (JsStack=>JsStack)) extends AnyVal
+  { def * (fn: (JsStack=>JsStack)) = ff compose fn
+    }
+
+}
+
