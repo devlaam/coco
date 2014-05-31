@@ -94,12 +94,13 @@ class JsonTest extends Specification
       (source | "array" | 0)   ===  j("1")
       (source | "array" | 1)   ===  j("2")
       (source | "array" | 2)   ===  j("3")
-      (source | "array" | "2")   ===  j("3")
-      (source | "array" | first)    ===  j("1")
-      (source | "array" | centre)   ===  j("2")
-      (source | "array" | last)     ===  j("3")
-      (source | "obect" | 2).toString    ===  (JsUndefined("Index on non array").toString)
-      (source | "obect" | 2).toString    ===  (JsUndefined("Index on non array").toString)
+      (source | "array" | "2")       ===  j("3")
+      (source | "array" | first)     ===  j("1")
+      (source | "array" | centre)    ===  j("2")
+      (source | "array" | last)      ===  j("3")
+      (source | "object" | 1)        ===  j(2)   //JP(""" { "twee": 2 } """)
+      (source | "object" | -1)       ===  j(3)    //JP(""" { "drie": 3 } """)
+      (source | "number" | first)    ===  j(42)
       (source | "emparr" | 0) .toString  ===  (JsUndefined("Index on empty array").toString)
     }
 
@@ -258,10 +259,12 @@ class JsonTest extends Specification
       (sourcex | "array" | first |>> )    ===  J("1")
       (sourcex | "array" | centre |>> )   ===  J("2")
       (sourcex | "array" | last |>> )     ===  J("3")
-      (sourcex | "obect" | 2 |>> )    ===  JsStack.nil
-      (sourcex | "obect" | 2 |>> )    ===  JsStack.nil
-      (sourcex | "emparr" | 0 |>> )   === JsStack.nil
+      (sourcex | "object" | 1 |>> )    ===   J(2)
+      (sourcex | "object" | -1 |>> )    ===  J(3)
+      (sourcex | "number" | 0 |>> )   ===  J(42)
+      (sourcex | "emparr" | 0 |>> )   ===  JsStack.nil
     }
+
 
     "survive object manipulations" in
     { (sourcex | "object" |+ "vier"->J(4) |>> )      ===  JsStack( JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4 } """))

@@ -156,6 +156,10 @@ object JsonLib
   case object centre extends JsPointer
   case object last   extends JsPointer
   case object up     extends JsPointer
+  case object simple extends JsPointer
+  case object array  extends JsPointer
+  case object objekt extends JsPointer
+
 
 
   trait JsContext

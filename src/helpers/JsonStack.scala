@@ -314,8 +314,9 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
   def get(i: Int): JsStack =
   { if (isNil) this
     else curr.head match
-    { case JsArray(seq) => pack(seq,i)
-      case _ => JsStack.nil } }
+    { case JsObject(seq) => pack(seq,i)
+      case JsArray(seq)  => pack(seq,i)
+      case _             => this } }
 
   /** MINIMALLY TESTED
    * Select a field with key s from an object. If the key is present more than
@@ -385,11 +386,10 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    */
   def | (p: JsPointer): JsStack = get(p)
   def get(p: JsPointer): JsStack =
-  { if (isNil) this
-    else (p,curr.head) match
-    { case (`first`,JsArray(seq))  => if (seq.size==0) JsStack.nil else pack(seq,0)
-      case (`centre`,JsArray(seq)) => if (seq.size==0) JsStack.nil else pack(seq,seq.size/2)
-      case (`last`,JsArray(seq))   => if (seq.size==0) JsStack.nil else pack(seq,seq.size-1)
+  { p match
+    { case `first`  => get(0)
+      case `centre` => get(size/2)
+      case `last`   => get(-1)
       case _ => JsStack.nil } }
 
   def |@ (get: String => JsFuture): JsFuture = open(get)
@@ -781,11 +781,34 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
   { def || (t: JsStack => JsStack): JsStack                        =  { if (b) self.replace(t) else self }
     def || (t: JsStack => JsStack, f: JsStack => JsStack): JsStack =  { if (b) self.replace(t) else self.replace(f) } }
 
-  def |? (b: Boolean) =  new JsStackConditionalHelp(b,this)
-  def |? (js: JsStack) =
-  { js match
-    { case  JsStack(Some(JsBoolean(b)),_,_) => new JsStackConditionalHelp(b,this)
-      case _  => new JsStackConditionalHelp(false,this) } }
+  def |?  (b: Boolean)    = testB(b,false)
+  def |?! (b: Boolean)    = testB(b,true)
+  def |?  (jv: JsStack)   = testJ(jv,false)
+  def |?! (jv: JsStack)   = testJ(jv,true)
+  def |?  (jt: JsPointer) = testT(jt,false)
+  def |?! (jt: JsPointer) = testT(jt,true)
+
+  def testB(b: Boolean, invert: Boolean = false) =  new JsStackConditionalHelp(b ^ invert,this)
+
+  def testJ(js: JsStack, invert: Boolean = false) =
+  { val result =  js match
+    { case  JsStack(Some(JsBoolean(b)),_,_) => b ^ invert
+      case _                                => false }
+    new JsStackConditionalHelp(result,this) }
+
+   def testT(jt: JsPointer, invert: Boolean = false) =
+   { val result = (this,jt) match
+      { case (JsStack(Some(JsObject(_)),_,_)  , `objekt`) => !invert
+        case (_                               , `objekt`) => invert
+        case (JsStack(Some(JsArray(_)),_,_)   ,  `array`) => !invert
+        case (_                               ,  `array`) => invert
+        case (JsStack(Some(JsString(_)),_,_)  , `simple`) => !invert
+        case (JsStack(Some(JsNumber(_)),_,_)  , `simple`) => !invert
+        case (JsStack(Some(JsBoolean(_)),_,_) , `simple`) => !invert
+        case (_                               , `simple`) => invert
+        case _                                            => false }
+    new JsStackConditionalHelp(result,this) }
+
 
 
   /** TO TEST

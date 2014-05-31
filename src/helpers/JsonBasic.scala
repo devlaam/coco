@@ -624,7 +624,7 @@ object JsonBasic
 
     /** MINIMALLY TESTED
      * Use get(), | to select an element of an array. Selection on empty arrays
-     * or non arrays return JsUndefined, otherwise an element is return. The
+     * or objects return JsUndefined, otherwise an element is returned. The
      * index is computed modulo the size, so that "element" | -1 returns the
      * last element of the array.
      *
@@ -646,8 +646,9 @@ object JsonBasic
     def | (i: Int): JsValue =  get(i)
     def get(i: Int): JsValue =
     { js match
-      { case JsArray(seq) => if (seq.size==0) JsUndefined("Index on empty array") else seq(modulo(i,seq.size))
-        case _ => JsUndefined("Index on non array") } }
+      { case JsObject(seq) => if (seq.size==0) JsUndefined("Index on empty object") else seq(modulo(i,seq.size))._2
+        case JsArray(seq)  => if (seq.size==0) JsUndefined("Index on empty array") else seq(modulo(i,seq.size))
+        case _ => js } }
 
     /** MINIMALLY TESTED
      * Just like you can select arrays by an index number, you can make use of the keywords
@@ -670,11 +671,11 @@ object JsonBasic
      */
     def | (p: JsPointer): JsValue = get(p)
     def get(p: JsPointer): JsValue =
-    { (p,js) match
-      { case (`first`,JsArray(seq))  => if (seq.size==0) JsUndefined("Index on empty array") else seq(0)
-        case (`centre`,JsArray(seq)) => if (seq.size==0) JsUndefined("Index on empty array") else seq(seq.size/2)
-        case (`last`,JsArray(seq))   => if (seq.size==0) JsUndefined("Index on empty array") else seq(seq.size-1)
-        case _ => JsUndefined("Index on non array") } }
+    { p match
+      { case `first`  => js.get(0)
+        case `centre` => js.get(size/2)
+        case `last`   => js.get(-1)
+        case _        => JsUndefined("Unrecognized pointer") } }
 
     /** MINIMALLY TESTED
      * Select a field with key s from an object. If the key is present more than
@@ -705,7 +706,7 @@ object JsonBasic
         { val short = seq.filter (_._1 == s);
           if (short.isEmpty)  JsUndefined("Key absent") else short(modulo(occ,short.size))._2 }
         case (JsArray(seq),Some(ind)) =>
-        { if (seq.size==0) JsUndefined("Index on empty array") else seq(modulo(ind,seq.size)) }
+        { if (seq.size==0) JsUndefined("Array has no keys") else seq(modulo(ind,seq.size)) }
         case _ => JsUndefined("Key select on non object or string on non array.") } }
 
     /** MINIMALLY TESTED
@@ -813,15 +814,38 @@ object JsonBasic
     def replace(k: String, f: JsValue => JsValue): JsValue =  addObj((k,f(js.get(k))))
 
    /** TO TEST
-     * Simple conditional replace
+     * Simple conditional replace, note that the inverted version only works for
+     * situations where a senseable test can be applied (for example, if the
+     * jsValue is indeed a boolean). If not, the result is always false.
      */
-    def |? (b: Boolean) =  new JsValueConditionalHelp(b,js)
-    def |? (jv: JsValue) =
-    { jv match
-      { case JsBoolean(b) => new JsValueConditionalHelp(b,js)
-        case _  => new JsValueConditionalHelp(false,js) } }
+    def |?  (b: Boolean)    = testB(b,false)
+    def |?! (b: Boolean)    = testB(b,true)
+    def |?  (jv: JsValue)   = testJ(jv,false)
+    def |?! (jv: JsValue)   = testJ(jv,true)
+    def |?  (jt: JsPointer) = testT(jt,false)
+    def |?! (jt: JsPointer) = testT(jt,true)
 
+    def testB(b: Boolean, invert: Boolean = false)  =  new JsValueConditionalHelp(b ^ invert,js)
 
+    def testJ(jv: JsValue, invert: Boolean = false) =
+    { val result = jv match
+      { case JsBoolean(b) => b ^ invert
+        case _            => false }
+     new JsValueConditionalHelp(result,js) }
+
+    def testT(jt: JsPointer, invert: Boolean = false) =
+    { val result = (js,jt) match
+      { case (_:JsUndefined, _       ) => false
+        case (JsObject(_)  , `objekt`) => !invert
+        case (_            , `objekt`) => invert
+        case (JsArray(_)   , `array` ) => !invert
+        case (_            , `array` ) => invert
+        case (JsString(_)  , `simple`) => !invert
+        case (JsNumber(_)  , `simple`) => !invert
+        case (JsBoolean(_) , `simple`) => !invert
+        case (_            , `simple`) => invert
+        case _                         => false }
+      new JsValueConditionalHelp(result,js) }
 
     /** MINIMALLY TESTED
      * Remove all elements with a particular value from the array
