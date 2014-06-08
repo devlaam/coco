@@ -39,15 +39,20 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
 {
   private def pack(pjt: JsStack => JsStack ): JsFuture = JsFuture(jsf.map(js => pjt(js)  ) )
   private def pack(jv: JsFuture, pjt: (JsStack,JsStack) => JsStack): JsFuture = JsFuture(jsf.flatMap(js => jv.jsf.map(jt => pjt(js,jt)) ) )
-  //private def flatPack(pjt: JsStack => Future[JsStack]): JsFuture = JsFuture(jsf.flatMap(js => pjt(js)  ) )
-  private def fpack(pjt: JsStack => JsFuture): JsFuture = JsFuture(jsf.flatMap(js => pjt(js).jsf  ) )
+  private def fpack(pjt: JsStack => JsFuture): JsFuture = JsFuture(jsf.flatMap(js => pjt(js).jsf ) )
   private def fpack(jv: JsFuture, pjt: (JsStack,JsStack) => JsFuture): JsFuture = JsFuture(jsf.flatMap(js => jv.jsf.flatMap(jt => pjt(js,jt).jsf) ) )
 
   def |< (i: Int): JsFuture  = move(i)
-  def move(i: Int): JsFuture = pack(js => if (i==0 || js.prev.isEmpty || js.curr.isEmpty) js else js.prev.head.move(i-1))
+  //def move(i: Int): JsFuture = pack(js => if (i==0 || js.prev.isEmpty || js.curr.isEmpty) js else js.prev.head.move(i-1))
+  def move(i: Int): JsFuture = pack(js => js.move(i))
 
   def |< (p: JsPointer): JsFuture  = move(p)
   def move(p: JsPointer): JsFuture = pack(js => js.move(p))
+
+  def |< (js: JsStack): JsFuture   = setLength(js)
+  def |< (jf: JsFuture): JsFuture  = setLength(jf)
+  def setLength(js: JsStack): JsFuture  = pack(j => j.setLength(js))
+  def setLength(jf: JsFuture): JsFuture = pack(jf, (js,jv) => js.setLength(jv))
 
   def length: Future[Int] = jsf.map(_.length)
 
@@ -83,6 +88,12 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
 
   def | [T](s: List[T]): JsFuture = get(s)
   def get[T](s: List[T]): JsFuture = pack(_.get(s))
+
+  def |+ (s: String): JsFuture = getAdd(s)
+  def getAdd(s: String): JsFuture = pack(_.getAdd(s))
+
+  def |+ (ls: List[String]): JsFuture = getAddL(ls)
+  def getAddL(ls: List[String]): JsFuture = pack(_.getAddL(ls))
 
   def | (p: JsPointer): JsFuture = get(p)
   def get(p: JsPointer): JsFuture = pack(_.get(p))
@@ -154,7 +165,7 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |?  (jt: JsFuture)  = testF(jt,false)
   def |?! (jt: JsFuture)  = testF(jt,true)
 
-  def  testB(b: Boolean, invert: Boolean = false) =  new JsFutureConditionalHelp(b ^ invert,this)
+  def testB(b: Boolean, invert: Boolean = false) =  new JsFutureConditionalHelp(b ^ invert,this)
   def testJ(js: JsStack, invert: Boolean = false) =
   { val result = js match
     { case  JsStack(Some(JsBoolean(b)),_,_) => b ^ invert
@@ -293,8 +304,15 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |++ (jvs: JsFuture): JsFuture                   = join(jvs,true)
   def |&++ (jvs: JsFuture): JsFuture                  = join(jvs,false)
 
-  def join(jvs: JsStack, unique: Boolean): JsFuture   = pack(_.joinAction(jvs,unique))
-  def join(jvs: JsFuture, unique: Boolean): JsFuture  = pack(jvs, (js,jn) => js.joinAction(jn,unique))
+  def |-- (jvs: JsStack): JsFuture                    = dismiss(jvs,true)
+  def |&-- (jvs: JsStack): JsFuture                   = dismiss(jvs,false)
+  def |-- (jvs: JsFuture): JsFuture                   = dismiss(jvs,true)
+  def |&-- (jvs: JsFuture): JsFuture                  = dismiss(jvs,false)
+
+  def join(jvs: JsStack, unique: Boolean): JsFuture        = pack(_.mergeAction(jvs,true,unique))
+  def join(jvs: JsFuture, unique: Boolean): JsFuture       = pack(jvs, (js,jn) => js.mergeAction(jn,true,unique))
+  def dismiss(jvs: JsStack, complete: Boolean): JsFuture   = pack(_.mergeAction(jvs,false,complete))
+  def dismiss(jvs: JsFuture, complete: Boolean): JsFuture  = pack(jvs, (js,jn) => js.mergeAction(jn,false,complete))
 
   def |??> (dflt: Boolean): Future[(Boolean,Boolean)]                   = valid(dflt)
   def valid(dflt: Boolean): Future[(Boolean,Boolean)]                   = jsf.map(_.valid(dflt))

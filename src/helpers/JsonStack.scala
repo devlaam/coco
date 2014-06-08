@@ -126,13 +126,28 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
         else { strip(Some(curr.head.delObj(key,jssRemove.curr,all,ind)),prevJn,List(indOld)) } }
       case _ =>  JsStack.nil } }
 
-  private[helpers] def joinAction(jssNew: JsStack, unique: Boolean): JsStack =
-  { (jssNew,this) match
+//  private[helpers] def joinAction(jssNew: JsStack, unique: Boolean): JsStack =
+//  { (jssNew,this) match
+//    { case ( JsStack(None,_,_), _) => this
+//      case ( JsStack(Some(JsObject(bseq)),_,_), JsStack(Some(JsObject(aseq)),prevJn,indOld) ) =>
+//        strip(Some(JsObject(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).toMap.toSeq)),prevJn,List(indOld))
+//      case ( JsStack(Some(JsArray(bseq)),_,_), JsStack(Some(JsArray(aseq)),prevJn,indOld) ) =>
+//        strip(Some(JsArray(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).distinct)),prevJn,List(indOld))
+//      case _ => JsStack.nil } }
+
+  private[helpers] def mergeAction(jssNew: JsStack, joinIt: Boolean, filterIt: Boolean): JsStack =
+  { def arrayFilter(aseq: Seq[JsValue],bseq: Seq[JsValue]) =
+    { if (joinIt) { if (!filterIt) (aseq ++ bseq) else (aseq ++ bseq).distinct }
+      else        { aseq.filterNot(a => bseq.contains(a)) } }
+    def objectFilter(aseq: Seq[(String,JsValue)],bseq: Seq[(String,JsValue)]) =
+    { if (joinIt) { if (!filterIt) (aseq ++ bseq) else (aseq ++ bseq).toMap.toSeq }
+      else        { aseq.filterNot(a => bseq.exists(b => (a._1 == b._1) && (!filterIt || (a._2 == b._2) ))) } }
+    (jssNew,this) match
     { case ( JsStack(None,_,_), _) => this
       case ( JsStack(Some(JsObject(bseq)),_,_), JsStack(Some(JsObject(aseq)),prevJn,indOld) ) =>
-        strip(Some(JsObject(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).toMap.toSeq)),prevJn,List(indOld))
+        strip(Some(JsObject(objectFilter(aseq,bseq))),prevJn,List(indOld))
       case ( JsStack(Some(JsArray(bseq)),_,_), JsStack(Some(JsArray(aseq)),prevJn,indOld) ) =>
-        strip(Some(JsArray(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).distinct)),prevJn,List(indOld))
+        strip(Some(JsArray(arrayFilter(aseq,bseq))),prevJn,List(indOld))
       case _ => JsStack.nil } }
 
   private def isNil[T](pvs: PairJx): Boolean        =  pvs._2.isNil
@@ -212,13 +227,23 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case `up`     => move(1) } }
 
   /** TO TEST
+   *  Move the pointer this jsStack to the length of a given jsStack.
+   *  Note, this is handy to 'rewind' a modified json. If the present
+   *  jsStack is 'shorter' no action takes place.
+   * */
+  def |< (jt: JsStack): JsStack =  setLength(jt)
+  def setLength(jt: JsStack): JsStack =
+  { val steps = length - jt.length
+    if (steps>0) move(steps) else this }
+
+  /** MINIMALLY TESTED
    * Return the depth of the present selection. A value zero
    * is returned for an empty stack, i.e. which does not hold
    * any jsValue element.
    */
   def length: Int =
   { def depth(jt: JsStack, d: Int): Int =
-    { prev match
+    { jt.prev match
       { case Some(jss) => depth(jss,d+1)
         case None      => d } }
     if (curr == None) 0 else depth(this,1) }
@@ -345,7 +370,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
   { if (isNil) this
     else (curr.head,s.asInt)  match
     { case (JsObject(seq),_)      =>
-      { val kCnt = seq.count (_._1 == s);
+      { val kCnt = seq.count (_._1 == s)
         if (kCnt == 0) JsStack.nil else
         { val occMod = modulo(occ,kCnt)
           val ind = seq.indexWhereNext(occMod,_._1 == s)
@@ -364,6 +389,24 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case (e:String) :: rest => get(e).get(rest)
       case _                  => JsStack.nil } }
 
+  /** MINIMALLY TESTED
+   * Select a field with (the first) key s from an object. If the key does not
+   * exists an empty object is created for that key and this is returned.
+   */
+  def |+ (s: String): JsStack = getAdd(s)
+  def getAdd(s: String): JsStack =
+  { if (isNil) this else addObjWhen((s,JsStack(JsObject(Nil))),false).get(s) }
+
+   /** MINIMALLY TESTED
+     * Select a fields with keys in succession. If that
+     * key does not exist add and return a new empty object.
+     */
+  def |+ (ls: List[String]): JsStack = getAddL(ls)
+  def getAddL(ls: List[String]): JsStack =
+  { ls match
+    { case Nil       => this
+      case s :: rest => getAdd(s).getAddL(rest)
+      case _         => JsStack.nil } }
 
   /** MINIMALLY TESTED
    * Just like you can select arrays by an index number, you can make use of the keywords
@@ -518,7 +561,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
             { case Some(jvs) => li :+ jvs
               case None      => li } }
           case (li,_)            => li } )),prevJn,List(ind) ) }
-      case _                                       => JsStack.nil } }
+      case _                                       => JsStack.nil } } // dit zou een gewone select kunnen worden.
 
   /**  MINIMALLY TESTED
    * Construct an array of JsValues by selecting those values corresponding
@@ -791,22 +834,22 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
   def testB(b: Boolean, invert: Boolean = false) =  new JsStackConditionalHelp(b ^ invert,this)
 
   def testJ(js: JsStack, invert: Boolean = false) =
-  { val result =  js match
+  { val result = js match
     { case  JsStack(Some(JsBoolean(b)),_,_) => b ^ invert
       case _                                => false }
     new JsStackConditionalHelp(result,this) }
 
    def testT(jt: JsPointer, invert: Boolean = false) =
    { val result = (this,jt) match
-      { case (JsStack(Some(JsObject(_)),_,_)  , `objekt`) => !invert
-        case (_                               , `objekt`) => invert
-        case (JsStack(Some(JsArray(_)),_,_)   ,  `array`) => !invert
-        case (_                               ,  `array`) => invert
-        case (JsStack(Some(JsString(_)),_,_)  , `simple`) => !invert
-        case (JsStack(Some(JsNumber(_)),_,_)  , `simple`) => !invert
-        case (JsStack(Some(JsBoolean(_)),_,_) , `simple`) => !invert
-        case (_                               , `simple`) => invert
-        case _                                            => false }
+     { case (JsStack(Some(JsObject(_)),_,_)  , `objekt`) => !invert
+       case (_                               , `objekt`) => invert
+       case (JsStack(Some(JsArray(_)),_,_)   ,  `array`) => !invert
+       case (_                               ,  `array`) => invert
+       case (JsStack(Some(JsString(_)),_,_)  , `simple`) => !invert
+       case (JsStack(Some(JsNumber(_)),_,_)  , `simple`) => !invert
+       case (JsStack(Some(JsBoolean(_)),_,_) , `simple`) => !invert
+       case (_                               , `simple`) => invert
+       case _                                            => false }
     new JsStackConditionalHelp(result,this) }
 
 
@@ -977,8 +1020,11 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
 
   def |++ (jvs: JsStack): JsStack                    = join(jvs,true)
   def |&++ (jvs: JsStack): JsStack                   = join(jvs,false)
+  def |-- (jv: JsStack): JsStack                     = dismiss(jv,false)
+  def |&-- (jv: JsStack): JsStack                    = dismiss(jv,true)
 
-  def join(jvs: JsStack, unique: Boolean): JsStack   = joinAction(jvs,unique)
+  def join(jvs: JsStack, unique: Boolean): JsStack      = mergeAction(jvs,true,unique)
+  def dismiss(jvs: JsStack, complete: Boolean): JsStack = mergeAction(jvs,false,complete)
 
   def |??> (dflt: Boolean): (Boolean,Boolean)                    = valid(dflt)
   def valid(dflt: Boolean): (Boolean,Boolean)                    = inf(j => j.valid(dflt),(false,dflt))
@@ -989,10 +1035,13 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
 
   /** To TEST
    * When comparing for equality we usually want to compare the current value
-   * and not the history of the json.
-   * */
-  def == (that: JsStack): Boolean = (this.curr == that.curr)
-  def != (that: JsStack): Boolean = (this.curr != that.curr)
+   * and not the history of the json. Note that nil neither equal nor unequal
+   * to anything even to nil. Thus, comparing to jsons for equality == can only
+   * return true if both values are non nil and equal. Likewise comparing for
+   * unequality != can only return true if both values are non nil and unequal.
+   */
+  def == (that: JsStack): Boolean = !this.isNil && !that.isNil && (this.curr == that.curr)
+  def != (that: JsStack): Boolean = !this.isNil && !that.isNil && (this.curr != that.curr)
 }
 
 object JsStack

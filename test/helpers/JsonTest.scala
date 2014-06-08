@@ -146,14 +146,21 @@ class JsonTest extends Specification
       (source | "object" |+? "drie"->j(4))    ===  JP(""" { "een": 1, "twee": 2, "drie": 4 } """)
       (source | "object" |+? "vier"->j(4))    ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
       (source | "object" |+!? "drie"->j(4))   ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
-      (source | "object" |+!? "vier"->j(4))   ===  JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4  } """) }
+      (source | "object" |+!? "vier"->j(4))   ===  JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4  } """)
+      (source |+ "string")                    ===  j("FooBar")
+      (source |+ List("piet","kees") |+ "test"->j("kees")) ===  JP(""" { "test" : "kees" } """)
+    }
 
-    "survive joins" in
+    "survive merges" in
     { ((source | "object") |++ (source | "object") )   ===  JP(""" {"een":1,"twee":2,"drie":3} """)
       ((source | "object") |&++ (source | "object") )  ===  JP(""" {"een":1,"twee":2,"drie":3, "een":1,"twee":2,"drie":3} """)
       ((source | "array") |++ (source | "array") )     ===  JP(""" ["1","2","3"] """)
-      ((source | "array") |&++ (source | "array") )     ===  JP(""" ["1","2","3","1","2","3"] """)
-      }
+      ((source | "array") |&++ (source | "array") )    ===  JP(""" ["1","2","3","1","2","3"] """)
+      ((source | "object") |++ (JP(""" { "een": 1, "twee": 2, "vier": 4 } """)) )   ===  JP(""" {"een":1,"twee":2,"drie":3,"vier":4} """)
+      ((source | "object") |--  (JP(""" { "een": 1, "twee": 2, "vier": 4 } """)) )  ===  JP(""" {"drie":3} """)
+      ((source | "object") |&-- (JP(""" { "een": 1, "twee": 3, "vier": 4 } """)) )  ===  JP(""" {"twee":2,"drie":3} """)
+      ((source | "array") |-- (JP(""" ["3","4","1"] """)) )     ===  JP(""" ["2"] """)
+      ((source | "array") |&-- (JP(""" ["3","4","1"] """)) )    ===  JP(""" ["2"] """) }
 
     "survive peelings" in
     { (source | "membs" |^ "name")          ===  JP(""" ["Jan","Piet","Klaas"] """)
@@ -235,6 +242,10 @@ class JsonTest extends Specification
     "survive moving in document" in
     { (sourcex | "numbs" | 0 |+ "een"->J("one") |< 2 | "words" | 1 |+ "twee"->J(2) |> )  ===  JsStack(resMoveUp)
       (sourcex | "numbs" | 0 |+ "een"->(J(1.1)) |< first |+ "string"->J("Boe") |> )       === JsStack(resPointr)
+      (JsStack.nil).length === 0
+      (sourcex).length === 1
+      (sourcex | "membs" | 1 | "age").length === 4
+      (((sourcex | "membs" | 1 | "age") |< (sourcex | "array")) | 2 | "name" |>> ) === J("Klaas")
     }
 
     "survive object-key selections" in
@@ -282,6 +293,8 @@ class JsonTest extends Specification
       (sourcex |- ("number",0) )      ===  JsStack( resMulti2)
       (sourcex |~ "object"->"subject" | "subject" |>>)  ===  JsStack(JP(""" { "een": 1, "twee": 2, "drie": 3 } """))
       (sourcex |~ "array"->"subject"  | "subject" |>>)  ===  JsStack(JP(""" ["1","2","3"] """))
+      (`!{}` |+ List("class","piet") |+ "age"-> J(3) |< 1 |+ "klaas" |+ "age"-> J(4) |> ) ===  JsStack(JP(""" { "class": { "piet": { "age" : 3 } , "klaas": { "age" : 4 }  } } """))
+
     }
 
 
@@ -313,12 +326,16 @@ class JsonTest extends Specification
       (sourcex | "object" |+!? "vier"->J(4) |> JsUndefined("") )   ===  JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4  } """)
     }
 
-    "survive joins" in
-    { ((sourcex | "object") |++  (sourcex | "object") |> JsUndefined(""))   ===  JP(""" {"een":1,"twee":2,"drie":3} """)
-      ((sourcex | "object") |&++ (sourcex | "object")  |> JsUndefined(""))  ===  JP(""" {"een":1,"twee":2,"drie":3, "een":1,"twee":2,"drie":3} """)
-      ((sourcex | "array")  |++  (sourcex | "array")  |> JsUndefined(""))   ===  JP(""" ["1","2","3"] """)
-      ((sourcex | "array")  |&++  (sourcex | "array")  |> JsUndefined(""))   ===  JP(""" ["1","2","3","1","2","3"] """)
-      }
+   "survive merges" in
+    { ((sourcex | "object") |++ (sourcex | "object") |>>)   ===  !JP(""" {"een":1,"twee":2,"drie":3} """)
+      ((sourcex | "object") |&++ (sourcex | "object") |>>)  ===  !JP(""" {"een":1,"twee":2,"drie":3, "een":1,"twee":2,"drie":3} """)
+      ((sourcex | "array") |++ (sourcex | "array") |>>)     ===  !JP(""" ["1","2","3"] """)
+      ((sourcex | "array") |&++ (sourcex | "array") |>>)    ===  !JP(""" ["1","2","3","1","2","3"] """)
+      ((sourcex | "object") |++ (!JP(""" { "een": 1, "twee": 2, "vier": 4 } """)) |>>)   ===  !JP(""" {"een":1,"twee":2,"drie":3,"vier":4} """)
+      ((sourcex | "object") |--  (!JP(""" { "een": 1, "twee": 2, "vier": 4 } """)) |>>)  ===  !JP(""" {"drie":3} """)
+      ((sourcex | "object") |&-- (!JP(""" { "een": 1, "twee": 3, "vier": 4 } """)) |>>)  ===  !JP(""" {"twee":2,"drie":3} """)
+      ((sourcex | "array") |-- (!JP(""" ["3","4","1"] """)) |>>)     ===  !JP(""" ["2"] """)
+      ((sourcex | "array") |&-- (!JP(""" ["3","4","1"] """)) |>>)    ===  !JP(""" ["2"] """) }
 
     "survive peelings" in
     { (sourcex | "membs" |^ "name"         |> )    === ! valresPeel1
@@ -327,13 +344,10 @@ class JsonTest extends Specification
       (sourcex | "membs" |^ ("name","age") |>> )   === ! JP(""" {"Jan":23,"Piet":43,"Klaas":19} """)
       (sourcex |+ "array"-> ( `![]` |+ J(List(1,2,3)) |+ J(List("a","b")) )  | "array" |^ 0  |>> ) === ! JP(""" [1,"a"]""")
       (sourcex |+ "array"-> ( `![]` |+ J(List(1,2,3)) |+ J(List("a","b")) )  | "array" |^ 2  |>> ) === ! JP(""" [3]""")
-
-
     }
 
     "survive flattening" in
     { (sourcex | "numbs"  |= false |>  )    === ! valresFlat1
-
     }
 
     "survive mapping" in

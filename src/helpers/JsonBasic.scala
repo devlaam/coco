@@ -680,7 +680,8 @@ object JsonBasic
     /** MINIMALLY TESTED
      * Select a field with key s from an object. If the key is present more than
      * once the first occurance is selected. With the additional parameter other
-     * occurances can be selected
+     * occurances can be selected (if the string contains an int AND the selection
+     * is on an array, the corresponding value from the array is selected.)
      *
      *  json = { "number" : 42,
      *           "string" : "FooBar",
@@ -943,6 +944,31 @@ object JsonBasic
         case _             => JsUndefined("Key,Value pair added to non object" ) } }
 
     /** MINIMALLY TESTED
+     * Select a field with key s from an object and return the value. If that
+     * key does not exist return a new empty object. You can only obtain the
+     * value for the first occurrence of a key.
+     */
+    def |+ (s: String): JsValue = getAdd(s)
+    def getAdd(s: String): JsValue =
+    { (js) match
+      { case JsObject(seq) =>
+        { val ind = seq.indexWhere (_._1 == s)
+          if (ind<0) JsObject(Nil) else seq(ind)._2 }
+        case _ => JsUndefined("Key get-Add on non object .") } }
+
+    /** MINIMALLY TESTED
+     * Select a fields with keys in succession. If that
+     * key does not exist return a new empty object.
+     */
+    def |+ (ls: List[String]): JsValue = getAddL(ls)
+    def getAddL(ls: List[String]): JsValue =
+    { ls match
+      { case Nil       => js
+        case s :: rest => getAdd(s).getAddL(rest)
+        case _         => JsUndefined("Key must be string") }}
+
+
+   /** MINIMALLY TESTED
      * Replace a key,value pair of the object at a specific location.
      * This is only needed to manipulate if multiple identical keys are
      * required. Note: this is NOT normal operation of json objects, although
@@ -1005,6 +1031,25 @@ object JsonBasic
         case _ => JsUndefined("Join on incompatible json values") } }
 
 
+    /** TO TEST
+     * Remove all elements from the first jsValue that are present in the second. For arrays
+     * the values are removed if there are equal in a complete value sense, for Objects
+     * per default only keys are compared. So equal keys imply removal. If complete comparison
+     * is required, set complete to true. For array's this has no meaning.
+     * Note that the operation does not guarantee uniqueness, however if the first if the original
+     * jsValue was unique the result will also be unique, for only values are removed.
+     * |-- removes on the basis of keys only, |&-- also compares the values of the keys.
+     * For arrays |-- and |&-- are equal operations.
+     */
+    def |-- (jv: JsValue): JsValue = dismiss(jv,false)
+    def |&-- (jv: JsValue): JsValue = dismiss(jv,true)
+    def dismiss(jv: JsValue, complete: Boolean): JsValue =
+    { (js,jv) match
+      { case (JsArray(aseq), JsArray(bseq) ) => JsArray(aseq.filterNot(a => bseq.contains(a)))
+        case (JsObject(aseq),JsObject(bseq)) => JsObject(aseq.filterNot(a => bseq.exists(b => (a._1 == b._1) && (!complete || (a._2 == b._2) ))))
+        case _ => JsUndefined("Dismiss on incompatible json values") } }
+
+
     /** MINIMALLY TESTED
      * Often you need to check if a values exists and has a senseable value.
      * Use this. First result indicates if the value is valid, the second
@@ -1031,5 +1076,22 @@ object JsonBasic
       val r1 =  js.to[String](dflt+"?")
       ( r0==r1 , r0 ) }
 
+// We may have a problem here. Suppose we have:
+// js1 = {"een":1,"twee":2,"drie":3,"een":4}
+// js2 = {"twee":2,"een":4,"een":1,"drie":3}
+// According to the spec, these are equal for the order of the keys is not important.
+// However, play (and this this lib) implemented this with Seq(key->Value). Seq however
+// is sequence sensitive thus comparison of both values results in false.
+// But a test of equality seems to render true nevertheless. Sort this out later.
+//   def == (that: JsValue) =
+//   {  println(this+" == "+that);
+//      (js,that) match
+//      { case (JsObject(seqThis),JsObject(seqThat)) => (seqThis.size == seqThat.size) && (seqThis zip seqThat).forall( { case (si,sa) => si == sa })
+//        case (JsArray(seqThis),JsArray(seqThat))   => (seqThis.size == seqThat.size) && (seqThis zip seqThat).forall( { case (si,sa) => si == sa })
+//        case (JsString(strThis),JsString(strThat)) => strThis == strThat
+//        case (JsNumber(nrThis),JsNumber(nrThat))   => nrThis == nrThat
+//        case (JsBoolean(bThis),JsBoolean(bThat))   => bThis == bThat
+//        case _                                     => false } }
+//
   }
 }
