@@ -50,6 +50,7 @@ object jsConstants
   val valresDistF  = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
   val valresDistB  = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
 
+  val valinverse = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"drie":3,"twee":2,"een":1},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
 
 
 
@@ -150,6 +151,12 @@ class JsonTest extends Specification
       (source |+ "string")                    ===  j("FooBar")
       (source |+ List("piet","kees") |+ "test"->j("kees")) ===  JP(""" { "test" : "kees" } """)
     }
+
+     "survive reversing" in
+    { -(source | "number")    ===  j(-42)
+      -(source | "array")     ===  JP(""" ["3","2","1"] """)
+      -(source | "object")    ===  JP(""" {"drie": 3, "twee": 2, "een": 1} """)
+      -(source | "membs" | first | "id") === j(false) }
 
     "survive merges" in
     { ((source | "object") |++ (source | "object") )   ===  JP(""" {"een":1,"twee":2,"drie":3} """)
@@ -316,8 +323,6 @@ class JsonTest extends Specification
       (sourcex | "array" |- J("2") |> )       ===  JsStack( resManA)
     }
 
-
-
     "survive addition" in
     { (sourcex | "array" |+ J("4")  |> JsUndefined("") )           ===  JP(""" ["1","2","3","4"] """)
       (sourcex | "object" |+? "drie"->J(4) |> JsUndefined("") )    ===  JP(""" { "een": 1, "twee": 2, "drie": 4 } """)
@@ -326,7 +331,14 @@ class JsonTest extends Specification
       (sourcex | "object" |+!? "vier"->J(4) |> JsUndefined("") )   ===  JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4  } """)
     }
 
-   "survive merges" in
+    "survive reversing" in
+    { ( -(sourcex | "number") |>> )   ===  J(-42)
+      ( -(sourcex | "array")  |>> ) ===  !JP(""" ["3","2","1"] """)
+      ( -(sourcex | "object")  |> ) ===  !valinverse
+      ( -(sourcex | "object") |>> ) ===  !JP(""" {"drie": 3, "twee": 2, "een": 1} """)
+      ( -(sourcex | "membs" | first | "id") |>> ) === J(false) }
+
+     "survive merges" in
     { ((sourcex | "object") |++ (sourcex | "object") |>>)   ===  !JP(""" {"een":1,"twee":2,"drie":3} """)
       ((sourcex | "object") |&++ (sourcex | "object") |>>)  ===  !JP(""" {"een":1,"twee":2,"drie":3, "een":1,"twee":2,"drie":3} """)
       ((sourcex | "array") |++ (sourcex | "array") |>>)     ===  !JP(""" ["1","2","3"] """)

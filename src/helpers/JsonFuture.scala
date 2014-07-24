@@ -218,6 +218,9 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
 
   def toStr: Future[String]  = jsf.map(_.toStr)
 
+  def unary_-                = inverse
+  def inverse: JsFuture      = pack(_.inverse)
+
   def ||>[T](): Future[List[JsStack]]                          = jsf.map(_.||>())
   def toValList[T](implicit fjs: Reads[T]): Future[List[T]]    = jsf.map(_.toValList(fjs))
 
@@ -243,9 +246,9 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |#> (): Future[Int]                                     = size
   def size: Future[Int]                                       = jsf.map(_.size)
 
+
   def |#> (s: String): Future[Int]                            = size(s)
   def size(s: String): Future[Int]                            = jsf.map(_.size(s))
-
 
   def |+ (vs: JsStack): JsFuture                       = addArr((-1,vs))
   def |+ (kvs: PairJx): JsFuture                       = addObj(kvs)

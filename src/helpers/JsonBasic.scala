@@ -566,6 +566,22 @@ object JsonBasic
         case JsArray(seq)  => JsArray(seq filterNot { case (jo) => jo.hasPair(kv) })
         case _  => JsUndefined("Grep on simple type") } }
 
+
+    /** MINIMALLY TESTED
+     * Obtain the inverse of the json. The meaning is type dependent. For boolean this
+     * is equivalent to the not operator. For numbers to the minus operator. Sequences
+     * in list and objects are reversed. Other types are not effected. The operation
+     * is not 'deep'. */
+    def unary_- = inverse
+    def inverse: JsValue =
+    { js match
+      { case JsObject(seq) => JsObject(seq.reverse)
+        case JsArray(seq)  => JsArray(seq.reverse)
+        case JsNumber(n)   => JsNumber(-n)
+        case JsBoolean(b)  => JsBoolean(!b)
+        case _             => js } }
+
+
     /** MINIMALLY TESTED
      * Get the size of the underlying JsValue. For JsObjects this is the number of key,val
      * pairs, for JsArrays the number of elements. Note an empty array in an object counts

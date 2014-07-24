@@ -486,6 +486,19 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray( seq filterNot ( _.hasPair(unpack(kvs)) ))),prevJn,List(ind) )
       case _                                       => JsStack.nil } }
 
+  /** MINIMALLY TESTED
+   * Obtain the inverse of the json. The meaning is type dependent. For boolean this
+   * is equivalent to the not operator. For numbers to the minus operator. Sequences
+   * in list and objects are reversed. Other types are not effected. The operation
+   * is not 'deep'. */
+  def unary_- = inverse
+  def inverse: JsStack =
+  { this match
+    { case JsStack(Some(JsObject(seq)),prevJn,ind) => strip( Some(JsObject(seq.reverse )),prevJn,List(ind) )
+      case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray(seq.reverse)),prevJn,List(ind) )
+      case JsStack(Some(JsNumber(n)),prevJn,ind)   => strip( Some(JsNumber(-n)),prevJn,List(ind) )
+      case JsStack(Some(JsBoolean(b)),prevJn,ind)  => strip( Some(JsBoolean(!b)),prevJn,List(ind) )
+      case _                                       => this } }
 
   /** MINIMALLY TESTED
    * Apply a function JsValues => JsValues on every value of the argument
