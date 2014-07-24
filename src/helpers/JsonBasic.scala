@@ -29,7 +29,10 @@ object JsonBasic
 { import JsonLib._
   //import JsonStack._
 
-
+  private[helpers] def traverse[T](seq: Seq[T], from: Int, size: Int, step: Int): Seq[T] =
+  { Iterator.from(0)
+            .takeWhile( i=>  if (size==0) (i*math.abs(step) < seq.size)  else (i < size) )
+            .map( i => seq(modulo( (i*step+from),seq.size)) ).toSeq  }
 
   protected case class JsValueConditionalHelp(b: Boolean, self: JsValue)
   { def || (t: JsValue => JsValue): JsValue                        =  { if (b) self.replace(t) else self }
@@ -528,6 +531,7 @@ object JsonBasic
       { case JsObject(seq) => JsObject(seq filter { p => f(p._1,p._2) })
         case _  => JsUndefined("filterPairs on non object") } }
 
+
     /** MINIMALLY TESTED
      * Select all pairs that equal kvs in the object or objects in array.
      * that posses and kvs pair. This operation is not defined on simple types.
@@ -665,6 +669,26 @@ object JsonBasic
       { case JsObject(seq) => if (seq.size==0) JsUndefined("Index on empty object") else seq(modulo(i,seq.size))._2
         case JsArray(seq)  => if (seq.size==0) JsUndefined("Index on empty array") else seq(modulo(i,seq.size))
         case _ => js } }
+
+    /** TO TEST
+     * To obtain a sub selection from a list or object (ignores other types)
+     * Selection starts a location from (modulo the size) and counts onwards
+     * size steps with 'step' in between, step may be negative to step backwards.
+     * If size is 0 the whole array is traversed once.
+     * If operated on empty lists/object the result will be empty, if size is 0 the
+     * number of elements in the result is at most the size of the original, otherwise
+     * you can assume the result has size elements (which may exceed the original size)
+     * Note: Although the key-sequence in this Json library is stable under the operations,
+     * this may not be the case when the Json is processed elsewhere, so be careful with
+     * selection of key-values based on their location!
+     */
+    def | (from: Int, size: Int, step: Int = 1): JsValue = sub(from, size, step)
+    def sub(from: Int, size: Int, step: Int = 1): JsValue =
+    { js match
+      { case JsObject(seq) => if (seq.size==0) js else JsObject(traverse(seq,from,size,step))
+        case JsArray(seq)  => if (seq.size==0) js else JsArray(traverse(seq,from,size,step))
+        case _             => js } }
+
 
     /** MINIMALLY TESTED
      * Just like you can select arrays by an index number, you can make use of the keywords

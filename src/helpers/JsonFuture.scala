@@ -82,6 +82,10 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def | (i: Int): JsFuture = get(i)
   def get(i: Int): JsFuture = pack(_.get(i))
 
+  def | (from: Int, size: Int, step: Int = 1): JsFuture  = sub(from, size, step)
+  def sub(from: Int, size: Int, step: Int = 1): JsFuture = pack(_.sub(from,size,step))
+
+
   def | (s: String): JsFuture = get(s,0)
   def |& (s: String, occ: Int): JsFuture = get(s,occ)
   def get(s: String, occ: Int = 0): JsFuture = pack(_.get(s,occ))

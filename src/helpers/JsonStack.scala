@@ -343,6 +343,27 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case JsArray(seq)  => pack(seq,i)
       case _             => this } }
 
+   /** TO TEST
+     * To obtain a sub selection from a list or object (ignores other types)
+     * Selection starts a location from (modulo the size) and counts onwards
+     * size steps with 'step' in between, step may be negative to step backwards.
+     * If size is 0 the whole array is traversed once.
+     * If operated on empty lists/object the result will be empty, if size is 0 the
+     * number of elements in the result is at most the size of the original, otherwise
+     * you can assume the result has size elements (which may exceed the original size)
+     * Note: Although the key-sequence in this Json library is stable under the operations,
+     * this may not be the case when the Json is processed elsewhere, so be careful with
+     * selection of key-values based on their location!
+     */
+  def | (from: Int, size: Int, step: Int = 1): JsStack = sub(from, size, step)
+  def sub(from: Int, size: Int, step: Int = 1): JsStack =
+  { this match
+    { case JsStack(Some(JsObject(seq)),prevJn,ind) => if (seq.size==0) this else strip( Some(JsObject(traverse(seq,from,size,step))),prevJn,List(ind) )
+      case JsStack(Some(JsArray(seq)),prevJn,ind)  => if (seq.size==0) this else strip( Some(JsArray(traverse(seq,from,size,step))),prevJn,List(ind) )
+      case _                                       => this } }
+
+
+
   /** MINIMALLY TESTED
    * Select a field with key s from an object. If the key is present more than
    * once the first occurance is selected. With the additional parameter other
