@@ -131,8 +131,14 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |^*(keykey: String, valkey: String): Future[Map[JsStack,JsStack]]     = peelMap(keykey,valkey)
   def peelMap(keykey: String, valkey: String): Future[Map[JsStack,JsStack]] = jsf.map(_.peelMap(keykey,valkey))
 
-  def |= (keep: Boolean) = flatten(keep)
+  def |= (keep: Boolean): JsFuture     = flatten(keep)
   def flatten(keep: Boolean): JsFuture = pack(_.flatten(keep))
+
+  def |= (jt: JsPointer): JsFuture  = cast(jt)
+  def cast(jt: JsPointer): JsFuture = pack(_.cast(jt))
+
+  def |** (default: JsStack = JsStack.nil): JsFuture  = transpose(default)
+  def transpose(default: JsStack = JsStack.nil): JsFuture = pack(_.transpose(default))
 
   def flatArr(keepPrimitive: Boolean): JsFuture = pack(_.flatArr(keepPrimitive))
 

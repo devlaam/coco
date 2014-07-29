@@ -456,6 +456,11 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case `last`   => get(-1)
       case _ => JsStack.nil } }
 
+  /** TO TEST
+   * Opens one or more json documents returning a future. The open method must accept a string
+   * and must return one JsFuture upon return. The open operator |@ can be called upon a JsString
+   * in which case a the required document is returned, or upon an array of JsStrings in which
+   * case each document is openen and placed in an Future JsArray of documents. */
   def |@ (get: String => JsFuture): JsFuture = open(get)
   def open(get: String => JsFuture): JsFuture =
   { if (isNil) JsFuture.nil
@@ -761,6 +766,27 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
             JsObject(unique) } }),prevJn,List(ind) ) }
       case _                                       => JsStack.nil } }
 
+    /** TO TEST
+     *  Transposes a array of arrays. Operating on a array of two array
+     *  this is equivalent to a scala zip on a list, but it is more general.
+     *  If the array of arrays is seen as an 2D array (where the inner
+     *  arrays are the rows) than this operation performs a (mathematical)
+     *  transpose. If you supply a default this is used to stub incomplete
+     *  rows first, for a transpose is defined on rectangular arrays only.
+     *  If not, the shortest inner array determines the operation area.
+     *  Non array elements in the outer most array are ignored.
+     */
+    def |** (default: JsStack = JsStack.nil): JsStack  = transpose(default)
+    def transpose(default: JsStack = JsStack.nil): JsStack =
+    { this match
+      { case JsStack(Some(JsArray(out)),prevJn,ind)  =>
+        { val outFiltered = out.collect{ case JsArray(in) => (in.length,in) }
+          val (min,max) = outFiltered.foldLeft((Int.MaxValue,0)) { case ((min,max),(len,seq)) => (math.min(min,len),math.max(max,len)) }
+          val outPadded =
+            if (default.isNil) outFiltered map { case (i,seq) => seq.take(min) }
+            else               outFiltered map { case (i,seq) => seq.padTo(max,default.curr.head) }
+          strip( Some( JsArray(outPadded.transpose.map( (seq) => JsArray(seq))) ),prevJn,List(ind) ) }
+        case _ => JsStack.nil } }
 
   /** MINIMALLY TESTED
    * Apply a filter JsValues => Boolean on every value of the argument
@@ -851,6 +877,36 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
     { case JsStack(None,_,_)           => f(this)
       case JsStack(Some(j),prevJn,ind) => strip( f(this).curr,prevJn,List(ind) ) } }
 
+
+  /** TO TEST
+   *  Simple internal cast function. If the cast can be performed it is done,
+   *  result undefined otherwise. case from one simple type to another.
+   *  Can also be used to promote a simple type to an array, of which it will
+   *  become the first element. For conversions from boolean, values that are
+   *  recognized as true are (case insensitive) : "true","yes","on","in"
+   *  Any other value qualifies as false. Conversion from number to boolean
+   *  follows the C standard, that is 0 qualifies for false, the rest is true
+   */
+  def |= (jt: JsPointer): JsStack  = cast(jt)
+  def cast(jt: JsPointer): JsStack =
+  { val trueVals = List("true","yes","on","in")
+    (this,jt) match
+    { case (JsStack(Some(JsObject(_)),_,_) ,        _ )            => JsStack.nil
+      case (JsStack(Some(JsArray(_)),_,_)  ,        _ )            => JsStack.nil
+      case (JsStack(Some(j),prevJn,ind)    ,  `array` )            => strip( Some(JsArray(Seq(j))),prevJn,List(ind) )
+      case (_                              ,  `simple`)            => this
+      case (JsStack(Some(JsString(s)),prevJn,ind)  ,  `string`)    => this
+      case (JsStack(Some(JsNumber(n)),prevJn,ind)  ,  `string`)    => strip( Some(JsString(n.toString)),prevJn,List(ind) )
+      case (JsStack(Some(JsBoolean(b)),prevJn,ind) ,  `string`)    => strip( Some(JsString(b.toString)),prevJn,List(ind) )
+      case (JsStack(Some(JsString(s)),prevJn,ind)  ,  `number`)    => strip( Some(JsNumber(BigDecimal(s))),prevJn,List(ind) )
+      case (JsStack(Some(JsNumber(n)),prevJn,ind)  ,  `number`)    => this
+      case (JsStack(Some(JsBoolean(b)),prevJn,ind) ,  `number`)    => strip( Some(JsNumber(BigDecimal(if (b) 1 else 0))),prevJn,List(ind) )
+      case (JsStack(Some(JsString(s)),prevJn,ind)  ,  `boolean`)   => strip( Some(JsBoolean(trueVals.contains(s.toLowerCase))),prevJn,List(ind) )
+      case (JsStack(Some(JsNumber(n)),prevJn,ind)  ,  `boolean`)   => strip( Some(JsBoolean(n!=0)),prevJn,List(ind) )
+      case (JsStack(Some(JsBoolean(b)),prevJn,ind) ,  `boolean`)   => this
+      case _                                                       => JsStack.nil } }
+
+
   /** TO TEST
    * Simple conditional replace
    */
@@ -875,15 +931,21 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
 
    def testT(jt: JsPointer, invert: Boolean = false) =
    { val result = (this,jt) match
-     { case (JsStack(Some(JsObject(_)),_,_)  , `objekt`) => !invert
-       case (_                               , `objekt`) => invert
-       case (JsStack(Some(JsArray(_)),_,_)   ,  `array`) => !invert
-       case (_                               ,  `array`) => invert
-       case (JsStack(Some(JsString(_)),_,_)  , `simple`) => !invert
-       case (JsStack(Some(JsNumber(_)),_,_)  , `simple`) => !invert
-       case (JsStack(Some(JsBoolean(_)),_,_) , `simple`) => !invert
-       case (_                               , `simple`) => invert
-       case _                                            => false }
+     { case (JsStack(Some(JsObject(_)),_,_)  ,  `objekt`)  => !invert
+       case (_                               ,  `objekt`)  =>  invert
+       case (JsStack(Some(JsArray(_)),_,_)   ,   `array`)  => !invert
+       case (_                               ,   `array`)  =>  invert
+       case (JsStack(Some(JsString(_)),_,_)  ,  `simple`)  => !invert
+       case (JsStack(Some(JsNumber(_)),_,_)  ,  `simple`)  => !invert
+       case (JsStack(Some(JsBoolean(_)),_,_) ,  `simple`)  => !invert
+       case (_                               ,  `simple`)  =>  invert
+       case (JsStack(Some(JsString(_)),_,_)  ,  `string`)  => !invert
+       case (_                               ,  `string`)  =>  invert
+       case (JsStack(Some(JsNumber(_)),_,_)  ,  `number`)  => !invert
+       case (_                               ,  `number`)  =>  invert
+       case (JsStack(Some(JsBoolean(_)),_,_) , `boolean`)  => !invert
+       case (_                               , `boolean`)  =>  invert
+       case _                                              =>   false }
     new JsStackConditionalHelp(result,this) }
 
 

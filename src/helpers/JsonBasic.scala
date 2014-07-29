@@ -384,6 +384,31 @@ object JsonBasic
             JsObject(unique) } }
         case _ => JsUndefined("flat on non array") } }
 
+    /** TO TEST
+     *  Transposes a array of arrays. Operating on a array of two array
+     *  this is equivalent to a scala zip on a list, but it is more general.
+     *  If the array of arrays is seen as an 2D array (where the inner
+     *  arrays are the rows) than this operation performs a (mathematical)
+     *  transpose. If you supply a default this is used to stub incomplete
+     *  rows first, for a transpose is defined on rectangular arrays only.
+     *  If not, the shortest inner array determines the operation area.
+     *  Non array elements in the outer most array are ignored.
+     */ // => is niet moeilijk , afmaken.
+    def |** (default: AnyRef = ""): JsValue  = transpose(default)
+    def transpose(default: AnyRef = ""): JsValue =
+    { val (valDefault,useDefault) = default match
+      { case js: JsValue => (js,     true)
+        case _           => (JsNull,false) }
+      js match
+      { case JsArray(out) =>
+        { val outFiltered = out.collect{ case JsArray(in) => (in.length,in) }
+          val (min,max) = outFiltered.foldLeft((Int.MaxValue,0)) { case ((min,max),(len,seq)) => (math.min(min,len),math.max(max,len)) }
+          val outPadded =
+            if (useDefault) outFiltered map { case (i,seq) => seq.padTo(max,valDefault) }
+            else            outFiltered map { case (i,seq) => seq.take(min) }
+          JsArray(outPadded.transpose.map( (seq) => JsArray(seq)))  }
+        case _ => JsUndefined("transpose on non list") } }
+
     /**   MINIMALLY TESTED
      * Construct an JsObject of JsValues by selecting those values corresponding
      * to the keys in objects of the originating JsArray. The values obtained by
@@ -851,6 +876,36 @@ object JsonBasic
     def |+ (f: JsValue => JsValue) = replace(f)
     def replace(f: JsValue => JsValue): JsValue = f(js)
 
+
+    /** TO TEST
+     *  Simple internal cast function. If the cast can be performed it is done,
+     *  result undefined otherwise. case from one simple type to another.
+     *  Can also be used to promote a simple type to an array, of which it will
+     *  become the first element. For conversions from boolean, values that are
+     *  recognized as true are (case insensitive) : "true","yes","on","in"
+     *  Any other value qualifies as false. Conversion from number to boolean
+     *  follows the C standard, that is 0 qualifies for false, the rest is true
+     */
+    def |= (jt: JsPointer): JsValue  = cast(jt)
+    def cast(jt: JsPointer): JsValue =
+    { val trueVals = List("true","yes","on","in")
+      (js,jt) match
+      { case (_:JsUndefined,        _ )   => js
+        case (JsObject(_)  ,        _ )   => JsUndefined("Cannot cast an object")
+        case (JsArray(_)   ,        _ )   => JsUndefined("Cannot cast an array")
+        case (_            ,  `array` )   => JsArray(Seq(js))
+        case (_            ,  `simple` )  => js
+        case (JsString(s)  ,  `string`)   => js
+        case (JsNumber(n)  ,  `string`)   => JsString(n.toString)
+        case (JsBoolean(b) ,  `string`)   => JsString(b.toString)
+        case (JsString(s)  ,  `number`)   => JsNumber(BigDecimal(s))
+        case (JsNumber(n)  ,  `number`)   => js
+        case (JsBoolean(b) ,  `number`)   => JsNumber(BigDecimal(if (b) 1 else 0))
+        case (JsString(s)  ,  `boolean`)  => JsBoolean(trueVals.contains(s.toLowerCase))
+        case (JsNumber(n)  ,  `boolean`)  => JsBoolean(n!=0)
+        case (JsBoolean(b) ,  `boolean`)  => js
+        case _                            => JsUndefined("Type not recognized") } }
+
     def |+ (kjj: PairJJ)(implicit d: DummyImplicit) = replace(kjj._1,kjj._2)
     def replace(k: String, f: JsValue => JsValue): JsValue =  addObj((k,f(js.get(k))))
 
@@ -876,16 +931,22 @@ object JsonBasic
 
     def testT(jt: JsPointer, invert: Boolean = false) =
     { val result = (js,jt) match
-      { case (_:JsUndefined, _       ) => false
-        case (JsObject(_)  , `objekt`) => !invert
-        case (_            , `objekt`) => invert
-        case (JsArray(_)   , `array` ) => !invert
-        case (_            , `array` ) => invert
-        case (JsString(_)  , `simple`) => !invert
-        case (JsNumber(_)  , `simple`) => !invert
-        case (JsBoolean(_) , `simple`) => !invert
-        case (_            , `simple`) => invert
-        case _                         => false }
+      { case (_:JsUndefined,        _ )  =>   false
+        case (JsObject(_)  ,  `objekt`)  => !invert
+        case (_            ,  `objekt`)  =>  invert
+        case (JsArray(_)   ,  `array` )  => !invert
+        case (_            ,  `array` )  =>  invert
+        case (JsString(_)  ,  `simple`)  => !invert
+        case (JsNumber(_)  ,  `simple`)  => !invert
+        case (JsBoolean(_) ,  `simple`)  => !invert
+        case (_            ,  `simple`)  =>  invert
+        case (JsString(_)  ,  `string`)  => !invert
+        case (_            ,  `string`)  =>  invert
+        case (JsNumber(_)  ,  `number`)  => !invert
+        case (_            ,  `number`)  =>  invert
+        case (JsBoolean(_) , `boolean`)  => !invert
+        case (_            , `boolean`)  =>  invert
+        case _                           =>   false }
       new JsValueConditionalHelp(result,js) }
 
     /** MINIMALLY TESTED

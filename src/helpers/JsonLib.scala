@@ -152,13 +152,16 @@ object JsonLib
    *  Adds extensions methods to the `JSON` companion object.
    */
   trait JsPointer
-  case object first  extends JsPointer
-  case object centre extends JsPointer
-  case object last   extends JsPointer
-  case object up     extends JsPointer
-  case object simple extends JsPointer
-  case object array  extends JsPointer
-  case object objekt extends JsPointer
+  case object first   extends JsPointer
+  case object centre  extends JsPointer
+  case object last    extends JsPointer
+  case object up      extends JsPointer
+  case object simple  extends JsPointer
+  case object array   extends JsPointer
+  case object objekt  extends JsPointer
+  case object string  extends JsPointer
+  case object number  extends JsPointer
+  case object boolean extends JsPointer
 
 
 
