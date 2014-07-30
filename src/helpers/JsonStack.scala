@@ -347,13 +347,28 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
      * To obtain a sub selection from a list or object (ignores other types)
      * Selection starts a location from (modulo the size) and counts onwards
      * size steps with 'step' in between, step may be negative to step backwards.
-     * If size is 0 the whole array is traversed once.
-     * If operated on empty lists/object the result will be empty, if size is 0 the
-     * number of elements in the result is at most the size of the original, otherwise
+     * If size is -1 the whole array is traversed exactly once, if size is 0 the
+     * process stops when a boundary is reached
+     * If operated on empty lists/object the result will be empty, if size is -1 the
+     * number of elements in the result is at most the size of the original, if size is
+     * 0 the number of elements is less than the that of the original, otherwise
      * you can assume the result has size elements (which may exceed the original size)
      * Note: Although the key-sequence in this Json library is stable under the operations,
      * this may not be the case when the Json is processed elsewhere, so be careful with
      * selection of key-values based on their location!
+     *
+     * Compared to scala list operations we have:
+     * | (0,1)  equals take (1)
+     * | (1,0)  equals drop (1)
+     * | (-1,3) equals takeRight 3 (but elements are reversed)
+     *
+     * But with step other selections are possible to!
+     * [1,2,3,4,5,6] | (1, -1,-1)  gives [2,1,6,5,4,3]
+     * [1,2,3,4,5,6] | (1,  0,-1)  gives [2,1]
+     * [1,2,3,4,5,6] | (1,  0, 2)  gives [2,4,6]
+     * [1,2,3,4,5,6] | (1, 10, 2)  gives [1,3,5,1,3,5,1,3,5,1]
+     * [1,2,3,4,5,6] | (5,  3, 6)  gives [6,6,6]
+     *
      */
   def | (from: Int, size: Int, step: Int = 1): JsStack = sub(from, size, step)
   def sub(from: Int, size: Int, step: Int = 1): JsStack =
@@ -771,20 +786,27 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
      *  this is equivalent to a scala zip on a list, but it is more general.
      *  If the array of arrays is seen as an 2D array (where the inner
      *  arrays are the rows) than this operation performs a (mathematical)
-     *  transpose. If you supply a default this is used to stub incomplete
+     *  transpose. Non array elements in the outer most array
+     *  are ignored. To handle incomplete rows, you mat specify to pad.
+     *  If pad is false, the shortest inner array determines the operation area,
+     *  but empty lists are, just as non array elements, ignored.
+     *  If pad is true  and you supply a default this is used to stub incomplete
      *  rows first, for a transpose is defined on rectangular arrays only.
-     *  If not, the shortest inner array determines the operation area.
-     *  Non array elements in the outer most array are ignored.
+     *  Without a default the last element of an array is used. In this case
+     *  empty lists are removed also (for there is nothing to pad with), so this
+     *  may change the expected size.
      */
-    def |** (default: JsStack = JsStack.nil): JsStack  = transpose(default)
-    def transpose(default: JsStack = JsStack.nil): JsStack =
+    def |** (pad: Boolean, default: JsStack = JsStack.nil): JsStack  = transpose(pad,default)
+    def transpose(pad: Boolean, default: JsStack = JsStack.nil): JsStack =
     { this match
       { case JsStack(Some(JsArray(out)),prevJn,ind)  =>
-        { val outFiltered = out.collect{ case JsArray(in) => (in.length,in) }
+        { val keepEmpty = pad && !default.isNil
+          val outFiltered = out collect { case JsArray(in) => (in.length,in) } filter { case (len,in) => (len != 0) || keepEmpty }
           val (min,max) = outFiltered.foldLeft((Int.MaxValue,0)) { case ((min,max),(len,seq)) => (math.min(min,len),math.max(max,len)) }
           val outPadded =
-            if (default.isNil) outFiltered map { case (i,seq) => seq.take(min) }
-            else               outFiltered map { case (i,seq) => seq.padTo(max,default.curr.head) }
+            if (!pad)               outFiltered map { case (i,seq) => seq.take(min) }
+            else if (default.isNil) outFiltered map { case (i,seq) => seq.padTo(max,seq.head) }
+            else                    outFiltered map { case (i,seq) => seq.padTo(max,default.curr.head) }
           strip( Some( JsArray(outPadded.transpose.map( (seq) => JsArray(seq))) ),prevJn,List(ind) ) }
         case _ => JsStack.nil } }
 
@@ -891,9 +913,9 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
   def cast(jt: JsPointer): JsStack =
   { val trueVals = List("true","yes","on","in")
     (this,jt) match
-    { case (JsStack(Some(JsObject(_)),_,_) ,        _ )            => JsStack.nil
+    { case (JsStack(Some(j),prevJn,ind)    ,  `array` )            => strip( Some(JsArray(Seq(j))),prevJn,List(ind) )
+      case (JsStack(Some(JsObject(_)),_,_) ,        _ )            => JsStack.nil
       case (JsStack(Some(JsArray(_)),_,_)  ,        _ )            => JsStack.nil
-      case (JsStack(Some(j),prevJn,ind)    ,  `array` )            => strip( Some(JsArray(Seq(j))),prevJn,List(ind) )
       case (_                              ,  `simple`)            => this
       case (JsStack(Some(JsString(s)),prevJn,ind)  ,  `string`)    => this
       case (JsStack(Some(JsNumber(n)),prevJn,ind)  ,  `string`)    => strip( Some(JsString(n.toString)),prevJn,List(ind) )

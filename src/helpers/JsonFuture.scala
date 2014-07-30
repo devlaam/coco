@@ -137,8 +137,8 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |= (jt: JsPointer): JsFuture  = cast(jt)
   def cast(jt: JsPointer): JsFuture = pack(_.cast(jt))
 
-  def |** (default: JsStack = JsStack.nil): JsFuture  = transpose(default)
-  def transpose(default: JsStack = JsStack.nil): JsFuture = pack(_.transpose(default))
+  def |** (pad: Boolean, default: JsStack = JsStack.nil): JsFuture  = transpose(pad,default)
+  def transpose(pad: Boolean, default: JsStack = JsStack.nil): JsFuture = pack(_.transpose(pad,default))
 
   def flatArr(keepPrimitive: Boolean): JsFuture = pack(_.flatArr(keepPrimitive))
 

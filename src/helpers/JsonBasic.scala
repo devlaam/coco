@@ -31,7 +31,9 @@ object JsonBasic
 
   private[helpers] def traverse[T](seq: Seq[T], from: Int, size: Int, step: Int): Seq[T] =
   { Iterator.from(0)
-            .takeWhile( i=>  if (size==0) (i*math.abs(step) < seq.size)  else (i < size) )
+            .takeWhile( i=>  if      (size<0)  (i*math.abs(step) < seq.size)
+                             else if (size==0) (i*step+from >= 0) && (i*step+from < seq.size)
+                             else              (i < size) )
             .map( i => seq(modulo( (i*step+from),seq.size)) ).toSeq  }
 
   protected case class JsValueConditionalHelp(b: Boolean, self: JsValue)
@@ -389,23 +391,30 @@ object JsonBasic
      *  this is equivalent to a scala zip on a list, but it is more general.
      *  If the array of arrays is seen as an 2D array (where the inner
      *  arrays are the rows) than this operation performs a (mathematical)
-     *  transpose. If you supply a default this is used to stub incomplete
+     *  transpose. Non array elements in the outer most array
+     *  are ignored. To handle incomplete rows, you mat specify to pad.
+     *  If pad is false, the shortest inner array determines the operation area,
+     *  but empty lists are, just as non array elements, ignored.
+     *  If pad is true  and you supply a default this is used to stub incomplete
      *  rows first, for a transpose is defined on rectangular arrays only.
-     *  If not, the shortest inner array determines the operation area.
-     *  Non array elements in the outer most array are ignored.
-     */ // => is niet moeilijk , afmaken.
-    def |** (default: AnyRef = ""): JsValue  = transpose(default)
-    def transpose(default: AnyRef = ""): JsValue =
+     *  Without a default the last element of an array is used. In this case
+     *  empty lists are removed also (for there is nothing to pad with), so this
+     *  may change the expected size.
+     */
+    def |** (pad: Boolean, default: AnyRef = ""): JsValue  = transpose(pad,default)
+    def transpose(pad: Boolean, default: AnyRef = ""): JsValue =
     { val (valDefault,useDefault) = default match
       { case js: JsValue => (js,     true)
         case _           => (JsNull,false) }
       js match
       { case JsArray(out) =>
-        { val outFiltered = out.collect{ case JsArray(in) => (in.length,in) }
+        { val keepEmpty = pad && useDefault
+          val outFiltered = out collect { case JsArray(in) => (in.length,in) } filter { case (len,in) => (len != 0) || keepEmpty }
           val (min,max) = outFiltered.foldLeft((Int.MaxValue,0)) { case ((min,max),(len,seq)) => (math.min(min,len),math.max(max,len)) }
           val outPadded =
-            if (useDefault) outFiltered map { case (i,seq) => seq.padTo(max,valDefault) }
-            else            outFiltered map { case (i,seq) => seq.take(min) }
+            if (!pad)              outFiltered map { case (i,seq) => seq.take(min) }
+            else if (useDefault)   outFiltered map { case (i,seq) => seq.padTo(max,valDefault) }
+            else                   outFiltered map { case (i,seq) => seq.padTo(max,seq.head) }
           JsArray(outPadded.transpose.map( (seq) => JsArray(seq)))  }
         case _ => JsUndefined("transpose on non list") } }
 
@@ -695,17 +704,32 @@ object JsonBasic
         case JsArray(seq)  => if (seq.size==0) JsUndefined("Index on empty array") else seq(modulo(i,seq.size))
         case _ => js } }
 
-    /** TO TEST
+   /** TO TEST
      * To obtain a sub selection from a list or object (ignores other types)
      * Selection starts a location from (modulo the size) and counts onwards
      * size steps with 'step' in between, step may be negative to step backwards.
-     * If size is 0 the whole array is traversed once.
-     * If operated on empty lists/object the result will be empty, if size is 0 the
-     * number of elements in the result is at most the size of the original, otherwise
+     * If size is -1 the whole array is traversed exactly once, if size is 0 the
+     * process stops when a boundary is reached
+     * If operated on empty lists/object the result will be empty, if size is -1 the
+     * number of elements in the result is at most the size of the original, if size is
+     * 0 the number of elements is less than the that of the original, otherwise
      * you can assume the result has size elements (which may exceed the original size)
      * Note: Although the key-sequence in this Json library is stable under the operations,
      * this may not be the case when the Json is processed elsewhere, so be careful with
      * selection of key-values based on their location!
+     *
+     * Compared to scala list operations we have:
+     * | (0,1)  equals take (1)
+     * | (1,0)  equals drop (1)
+     * | (-1,3) equals takeRight 3 (but elements are reversed)
+     *
+     * But with step other selections are possible to!
+     * [1,2,3,4,5,6] | (1, -1,-1)  gives [2,1,6,5,4,3]
+     * [1,2,3,4,5,6] | (1,  0,-1)  gives [2,1]
+     * [1,2,3,4,5,6] | (1,  0, 2)  gives [2,4,6]
+     * [1,2,3,4,5,6] | (1, 10, 2)  gives [1,3,5,1,3,5,1,3,5,1]
+     * [1,2,3,4,5,6] | (5,  3, 6)  gives [6,6,6]
+     *
      */
     def | (from: Int, size: Int, step: Int = 1): JsValue = sub(from, size, step)
     def sub(from: Int, size: Int, step: Int = 1): JsValue =
@@ -891,9 +915,9 @@ object JsonBasic
     { val trueVals = List("true","yes","on","in")
       (js,jt) match
       { case (_:JsUndefined,        _ )   => js
+        case (_            ,  `array` )   => JsArray(Seq(js))
         case (JsObject(_)  ,        _ )   => JsUndefined("Cannot cast an object")
         case (JsArray(_)   ,        _ )   => JsUndefined("Cannot cast an array")
-        case (_            ,  `array` )   => JsArray(Seq(js))
         case (_            ,  `simple` )  => js
         case (JsString(s)  ,  `string`)   => js
         case (JsNumber(n)  ,  `string`)   => JsString(n.toString)
