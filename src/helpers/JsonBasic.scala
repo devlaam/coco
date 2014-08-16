@@ -76,8 +76,8 @@ object JsonBasic
      *  the operator starts with a ?  thus preceding precedence, reducing the
      *  need for ()
      */
-    def ?| (js: JsValue) = alternative(js)
-    def alternative (jv: JsValue) = if (isFilled) this else jv
+    def ?| (js: => JsValue) = alternative(js)
+    def alternative (jv: => JsValue) = if (isFilled) this else jv
 
 
     /** TO TEST
@@ -475,6 +475,25 @@ object JsonBasic
         case JsArray(seq)  => JsArray(seq map f)
         case j : JsValue => f(j) } }
 
+   /** TO TEST
+     * Provides a way to perform internal mappings, without going to the
+     * sequence of type transformations. If the transformation is not applicable
+     * no transformation takes place.
+     */
+    def mapStr(f: String => String): JsValue =
+    { js match
+      { case JsObject(seq) => JsObject(seq map { case (k,JsString(s)) => (k,JsString(f(s)));  case jkv => jkv })
+        case JsArray(seq)  => JsArray( seq map { case JsString(s)     => JsString(f(s));      case jv  => jv } )
+        case JsString(s)   => JsString(f(s))
+        case _             => js } }
+
+    def mapNum(f: BigDecimal => BigDecimal): JsValue =
+    { js match
+      { case JsObject(seq) => JsObject(seq map { case (k,JsNumber(n)) => (k,JsNumber(f(n)));  case jkv => jkv })
+        case JsArray(seq)  => JsArray( seq map { case JsNumber(n)     => JsNumber(f(n));      case jv  => jv } )
+        case JsNumber(n)   => JsNumber(f(n))
+        case _             => js } }
+
     /** MINIMALLY TESTED
      * Apply a projection (JsValue) => T on every value of the argument
      * and return the result as a list.
@@ -671,8 +690,8 @@ object JsonBasic
     def |#> (s: String): Int = js.size(s)
     def size(s: String): Int =
     { js match
-      { case JsObject(seq) => seq.count(_._1 == s)
-        case JsArray(seq)  => seq.count(_ == s)
+      { case JsObject(seq) => seq.count { case (k,v) => (k == s) }
+        case JsArray(seq)  => seq.count { case JsString(js) => (js == s); case _ => false }
         case JsString(js)  => if (js==s) 1 else 0
         case _  => 0 } }
 
@@ -1082,8 +1101,8 @@ object JsonBasic
         case _ => JsUndefined("Key get-Add on non object .") } }
 
     /** MINIMALLY TESTED
-     * Select a fields with keys in succession. If that
-     * key does not exist return a new empty object.
+     * Select fields with keys in succession. Every key in the path that
+     * does not exists is created with new object
      */
     def |+ (ls: List[String]): JsValue = getAddL(ls)
     def getAddL(ls: List[String]): JsValue =

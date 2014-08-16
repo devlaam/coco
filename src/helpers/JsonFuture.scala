@@ -113,6 +113,8 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
 
   def |* (f: JsStack => JsStack): JsFuture = map(f)
   def map(f: JsStack => JsStack): JsFuture = pack(_.map(f))
+  def mapStr(f: String => String): JsFuture = pack(_.mapStr(f))
+  def mapNum(f: BigDecimal => BigDecimal): JsFuture = pack(_.mapNum(f))
 
   def |^ (key: String): JsFuture  = peel(key)
   def peel(key: String): JsFuture = pack(_.peel(key))
@@ -211,10 +213,10 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |?> = isFilled
   def isFilled: Future[Boolean] = jsf.map(_.isFilled)
 
-  def ?| (js: JsStack) = alternative(js)
-  def ?| (js: JsFuture) = alternative(js)
-  def alternative (js: JsStack)  = pack(j => if (j.isFilled) j else js)
-  def alternative (js: JsFuture) = fpack(j => if (j.isFilled) this else js)
+  def ?| (js: => JsStack)                                       = alternative(js)
+  def ?| (js: => JsFuture)(implicit d1: DummyImplicit)          = alternative(js)(d1)
+  def alternative (js: => JsStack)                              = pack(j => if (j.isFilled) j else js)
+  def alternative (js: => JsFuture)(implicit d1: DummyImplicit) = fpack(j => if (j.isFilled) this else js)
 
 
   def |?>(jvs: JsStack):  Future[Boolean] = contains(jvs)

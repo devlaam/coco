@@ -561,8 +561,37 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    *   json | "array"  |* { js => `{}` |+ "val"-> js }   |>  gives json with array replaced by [{"val":"1"},{"val":"2"},{"val":"3"}]
    *   json | "object" |* { js => j(js.toStr+"s") }      |> gives json with object replaced by  {"een":"1s","twee":"2s","drie":"3s"}
    *   json | "number" |* { js => `{}` |+ "answer"->js } |> gives json with number replaced by  {"answer":42}
+   *   json | "object" |* { _ * 2 } |> gives json with object replaced by  {"een":"2","twee":"4","drie":"6"}
    *
    */
+
+
+// We moeten ons nog wat beter in de reflectie verdiepen, want ik krijg
+// dit niet aan de praat.
+//  import scala.reflect._
+//  import scala.reflect.runtime.universe._
+//  def |*& [T: TypeTag](f: T => T): JsStack =
+//  { typeOf[T] match
+//    { case t if t =:= typeOf[JsStack]     => map(f)
+//      case t if t =:= typeOf[String]      => mapStr(f)
+//      case t if t =:= typeOf[BigDecimal]  => mapNum(f)
+//      case _ => this   } }
+
+//  def |*& [T: TypeTag](f: T => T): JsStack =
+//  { f match
+//    { case fj: (JsStack => JsStack)       => map(fj)
+//      case fs: (String => String)         => mapStr(fs)
+//      case fi: (BigDecimal => BigDecimal) => mapNum(fi)
+//      case _ => this   } }
+//
+
+//  def |*& [T: TypeTag](f: List[T]): T =
+//  { f match
+//    { case fj: List[String]     => fj.head + "x"
+//      case fs: List[Int]        => fs.head * 2
+//      case _ => null    } }
+
+
   def |* (f: JsStack => JsStack): JsStack = map(f)
   def map(f: JsStack => JsStack): JsStack =
   { if (isNil) this
@@ -570,6 +599,23 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
     { case JsStack(Some(JsObject(seq)),prevJn,ind) => strip( Some(JsObject(seq map (melt(f) compose pack) filterNot (isNil(_)) map ( unpack(_) ))),prevJn,List(ind))
       case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray(seq map (f compose pack) filterNot (_.isNil) map ( unpack(_) ) )),prevJn,List(ind) )
       case JsStack(Some(j),prevJn,ind)             => strip( f(pack(j)).curr,prevJn,List(ind) ) } }
+
+  def mapStr(f: String => String): JsStack =
+  { if (isNil) this
+    else this match
+    { case JsStack(Some(JsObject(seq)),prevJn,ind) => strip( Some(JsObject(seq map { case (k,JsString(s)) => (k,JsString(f(s))); case jkv => jkv } )),prevJn,List(ind))
+      case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray(seq map { case JsString(s) => JsString(f(s)); case jv => jv } )),prevJn,List(ind) )
+      case JsStack(Some(JsString(s)),prevJn,ind)   => strip( (pack(JsString(f(s)))).curr,prevJn,List(ind) )
+      case _                                       => this  } }
+
+  def mapNum(f: BigDecimal => BigDecimal): JsStack =
+  { if (isNil) this
+    else this match
+    { case JsStack(Some(JsObject(seq)),prevJn,ind) => strip( Some(JsObject(seq map { case (k,JsNumber(n)) => (k,JsNumber(f(n))); case jkv => jkv } )),prevJn,List(ind))
+      case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray(seq map { case JsNumber(n) => JsNumber(f(n)); case jv => jv } )),prevJn,List(ind) )
+      case JsStack(Some(JsNumber(s)),prevJn,ind)   => strip( (pack(JsNumber(f(s)))).curr,prevJn,List(ind) )
+      case _                                       => this  } }
+
 
   // DIT AFMAKEN.Is nu lastig
 //  def map(f: JsStack => JsFuture): JsFuture =
@@ -1007,8 +1053,8 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    *  last when none is filled. Note that the operator starts with a ?
    *  thus preceding precedence, reducing the need for extra  ()
    */
-  def ?| (js: JsStack) = alternative(js)
-  def alternative (js: JsStack) = if (isFilled) this else js
+  def ?| (js: => JsStack) = alternative(js)
+  def alternative (js: => JsStack) = if (isFilled) this else js
 
   /** TO TEST
    * Check if an JsOject or JsArray contains a particular field of value:
