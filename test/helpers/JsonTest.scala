@@ -153,10 +153,10 @@ class JsonTest extends Specification
     }
 
      "survive reversing" in
-    { -(source | "number")    ===  j(-42)
-      -(source | "array")     ===  JP(""" ["3","2","1"] """)
-      -(source | "object")    ===  JP(""" {"drie": 3, "twee": 2, "een": 1} """)
-      -(source | "membs" | first | "id") === j(false) }
+    { (source | "number" |!- true)    ===  j(-42)
+      (source | "array"  |!- true)     ===  JP(""" ["3","2","1"] """)
+      (source | "object" |!- j(true))    ===  JP(""" {"drie": 3, "twee": 2, "een": 1} """)
+      (source | "membs" | first | "id"  |!- j(true)) === j(false) }
 
     "survive merges" in
     { ((source | "object") |++ (source | "object") )   ===  JP(""" {"een":1,"twee":2,"drie":3} """)
@@ -332,11 +332,11 @@ class JsonTest extends Specification
     }
 
     "survive reversing" in
-    { ( -(sourcex | "number") |>> )   ===  J(-42)
-      ( -(sourcex | "array")  |>> ) ===  !JP(""" ["3","2","1"] """)
-      ( -(sourcex | "object")  |> ) ===  !valinverse
-      ( -(sourcex | "object") |>> ) ===  !JP(""" {"drie": 3, "twee": 2, "een": 1} """)
-      ( -(sourcex | "membs" | first | "id") |>> ) === J(false) }
+    { ( (sourcex | "number") |!- true |>> )   ===  J(-42)
+      ( (sourcex | "array")  |!- true  |>> ) ===  !JP(""" ["3","2","1"] """)
+      ( (sourcex | "object") |!- true  |> ) ===  !valinverse
+      ( (sourcex | "object") |!- J(true)  |>> ) ===  !JP(""" {"drie": 3, "twee": 2, "een": 1} """)
+      ( (sourcex | "membs" | first | "id") |!- J(true)  |>> ) === J(false) }
 
      "survive merges" in
     { ((sourcex | "object") |++ (sourcex | "object") |>>)   ===  !JP(""" {"een":1,"twee":2,"drie":3} """)

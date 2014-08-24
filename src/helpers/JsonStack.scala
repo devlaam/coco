@@ -532,14 +532,22 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    * is equivalent to the not operator. For numbers to the minus operator. Sequences
    * in list and objects are reversed. Other types are not effected. The operation
    * is not 'deep'. */
-  def unary_- = inverse
-  def inverse: JsStack =
-  { this match
+  //def unary_- = inverse
+  def |!- (b: Boolean): JsStack   = inverse(b)
+  def |!- (jsb: JsStack): JsStack = inverse(jsb)
+
+  def inverse(b: Boolean): JsStack =
+  { if (!b) this else this match
     { case JsStack(Some(JsObject(seq)),prevJn,ind) => strip( Some(JsObject(seq.reverse )),prevJn,List(ind) )
       case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray(seq.reverse)),prevJn,List(ind) )
       case JsStack(Some(JsNumber(n)),prevJn,ind)   => strip( Some(JsNumber(-n)),prevJn,List(ind) )
       case JsStack(Some(JsBoolean(b)),prevJn,ind)  => strip( Some(JsBoolean(!b)),prevJn,List(ind) )
       case _                                       => this } }
+
+  def inverse(jsb: JsStack): JsStack =
+  { jsb match
+    { case JsStack(Some(JsBoolean(b)),_,_)  => inverse(b)
+      case _                                => JsStack.nil } }
 
   /** MINIMALLY TESTED
    * Apply a function JsValues => JsValues on every value of the argument

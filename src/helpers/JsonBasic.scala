@@ -629,15 +629,22 @@ object JsonBasic
      * is equivalent to the not operator. For numbers to the minus operator. Sequences
      * in list and objects are reversed. Other types are not effected. The operation
      * is not 'deep'. */
-    def unary_- = inverse
-    def inverse: JsValue =
-    { js match
+    //def unary_- = inverse
+    def |!- (b: Boolean): JsValue   = inverse(b)
+    def |!- (jsb: JsValue): JsValue = inverse(jsb)
+
+    def inverse(b: Boolean): JsValue =
+    { if (!b) js else js match
       { case JsObject(seq) => JsObject(seq.reverse)
         case JsArray(seq)  => JsArray(seq.reverse)
         case JsNumber(n)   => JsNumber(-n)
         case JsBoolean(b)  => JsBoolean(!b)
         case _             => js } }
 
+    def inverse(jsb: JsValue): JsValue =
+    { jsb match
+      { case JsBoolean(b) => inverse(b)
+        case _            => JsUndefined("Inverse only with boolean argument.") } }
 
     /** MINIMALLY TESTED
      * Get the size of the underlying JsValue. For JsObjects this is the number of key,val
