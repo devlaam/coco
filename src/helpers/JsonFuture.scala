@@ -79,6 +79,9 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def firstTo(dflt: JsValue): Future[JsValue]                   = jsf.map(_.move(-1).lastTo(dflt))
   def firstTo[T](dflt: T)(implicit fjs: Reads[T]): Future[T]    = jsf.map(_.move(-1).lastTo(dflt))
 
+  def |>[T](f: JsStack => T): Future[T]     = lastTo[T](f)
+  def lastTo[T](f: JsStack => T): Future[T] = jsf.map(js => f(js))
+
   def | (i: Int): JsFuture = get(i)
   def get(i: Int): JsFuture = pack(_.get(i))
 

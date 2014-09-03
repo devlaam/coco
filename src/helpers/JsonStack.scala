@@ -313,6 +313,13 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
   def firstTo(dflt: JsValue): JsValue                   = move(-1).lastTo(dflt)
   def firstTo[T](dflt: T)(implicit fjs: Reads[T]): T    = move(-1).lastTo(dflt)
 
+  /** TO TEST
+   * Convert JsValue to a custom type, specifying a mapping.
+   */
+  def |>[T](f: JsStack => T): T     = lastTo[T](f)
+  def lastTo[T](f: JsStack => T): T = f(this)
+
+
   /** MINIMALLY TESTED
    * Use get(), | to select an element of an array. Selection on empty arrays
    * or non arrays return an empty list, so this is well defined. Otherwise

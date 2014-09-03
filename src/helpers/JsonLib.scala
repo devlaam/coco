@@ -62,6 +62,9 @@ object JsonLib
   def j[T](x: T)(implicit fjs: Writes[T]): JsValue  = Json.toJson[T](x)(fjs)
   def J[T](x: T)(implicit fjs: Writes[T]): JsStack = JsStack(j(x)(fjs))
 
+  def j(it: Iterable[JsValue]) = JsArray(it.toSeq)
+  def J(it: Iterable[JsValue]) = !JsArray(it.toSeq)
+  def J(it: Iterable[JsStack])(implicit d: DummyImplicit) = !JsArray(it.filter(!_.isNil).map(_.curr.head).toSeq )
 
   /**
    * Auxiliary function to collect the results of all futures.

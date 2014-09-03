@@ -138,6 +138,13 @@ object JsonBasic
       { case (JsSuccess(jss, _)) => jss
               case _ => dflt } }
 
+    /** TO TEST
+     * Convert JsValue to a custom type, specifying a mapping.
+     */
+    def |>[T](f: JsValue => T): T = js.to[T](f)
+    def to[T](f: JsValue => T): T = f(js)
+
+
     /**
      * Json.stringify make literal strings (with "") whereas the implicit read does not
      * turn a number into a string, we need something in between, a good old toStr method.
