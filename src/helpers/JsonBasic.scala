@@ -955,7 +955,7 @@ object JsonBasic
         case (JsString(s)  ,  `string`)   => js
         case (JsNumber(n)  ,  `string`)   => JsString(n.toString)
         case (JsBoolean(b) ,  `string`)   => JsString(b.toString)
-        case (JsString(s)  ,  `number`)   => JsNumber(BigDecimal(s))
+        case (JsString(s)  ,  `number`)   => try JsNumber(BigDecimal(s)) catch { case e: Exception => JsUndefined("Exception: "+e) }
         case (JsNumber(n)  ,  `number`)   => js
         case (JsBoolean(b) ,  `number`)   => JsNumber(BigDecimal(if (b) 1 else 0))
         case (JsString(s)  ,  `boolean`)  => JsBoolean(trueVals.contains(s.toLowerCase))

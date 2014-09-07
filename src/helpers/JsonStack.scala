@@ -963,7 +963,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
 
   /** TO TEST
    *  Simple internal cast function. If the cast can be performed it is done,
-   *  result undefined otherwise. case from one simple type to another.
+   *  result nil otherwise. Cast from one simple type to another.
    *  Can also be used to promote a simple type to an array, of which it will
    *  become the first element. For conversions from boolean, values that are
    *  recognized as true are (case insensitive) : "true","yes","on","in"
@@ -981,14 +981,13 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case (JsStack(Some(JsString(s)),prevJn,ind)  ,  `string`)    => this
       case (JsStack(Some(JsNumber(n)),prevJn,ind)  ,  `string`)    => strip( Some(JsString(n.toString)),prevJn,List(ind) )
       case (JsStack(Some(JsBoolean(b)),prevJn,ind) ,  `string`)    => strip( Some(JsString(b.toString)),prevJn,List(ind) )
-      case (JsStack(Some(JsString(s)),prevJn,ind)  ,  `number`)    => strip( Some(JsNumber(BigDecimal(s))),prevJn,List(ind) )
+      case (JsStack(Some(JsString(s)),prevJn,ind)  ,  `number`)    => try strip( Some(JsNumber(BigDecimal(s))),prevJn,List(ind) ) catch { case e: Exception => JsStack.nil }
       case (JsStack(Some(JsNumber(n)),prevJn,ind)  ,  `number`)    => this
       case (JsStack(Some(JsBoolean(b)),prevJn,ind) ,  `number`)    => strip( Some(JsNumber(BigDecimal(if (b) 1 else 0))),prevJn,List(ind) )
       case (JsStack(Some(JsString(s)),prevJn,ind)  ,  `boolean`)   => strip( Some(JsBoolean(trueVals.contains(s.toLowerCase))),prevJn,List(ind) )
       case (JsStack(Some(JsNumber(n)),prevJn,ind)  ,  `boolean`)   => strip( Some(JsBoolean(n!=0)),prevJn,List(ind) )
       case (JsStack(Some(JsBoolean(b)),prevJn,ind) ,  `boolean`)   => this
       case _                                                       => JsStack.nil } }
-
 
   /** TO TEST
    * Simple conditional replace
@@ -1207,6 +1206,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
 
   def |??> (dflt: Boolean): (Boolean,Boolean)                    = valid(dflt)
   def valid(dflt: Boolean): (Boolean,Boolean)                    = inf(j => j.valid(dflt),(false,dflt))
+  def |??> (dflt: Long)                                          = valid(1,0,dflt)
   def |??> (min: Long, max: Long, dflt: Long): (Boolean,Long)    = valid(min,max,dflt)
   def valid(min: Long, max: Long, dflt: Long): (Boolean,Long)    = inf(j => j.valid(min,max,dflt),(false,dflt))
   def |??> (dflt: String): (Boolean,String)                      = valid(dflt)
