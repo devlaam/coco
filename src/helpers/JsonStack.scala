@@ -100,9 +100,8 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
         val iMod = if (unique || kCnt==0) 0 else modulo(ind,kCnt+(1-pi))
         val iNew = if (iMod==kCnt) so.size else so.indexWhereNext(iMod,_._1 == key)
         val jso  = if (unique) JsObject(so.filterNot(_._1 == key).insert(iNew,(key,jsv))) else JsObject(so.patch(iNew,Seq((key,jsv)),pi))
-        if ((bePresent && (kCnt==0))||(beAbsent && (kCnt!=0) )) this else strip(Some(jso),prevJn,List(indOld))
         //strip(Some(jsv),Some(JsStack(Some(jso),prevJn,indOld)),List(iNew))
-        }
+        if ((bePresent && (kCnt==0))||(beAbsent && (kCnt!=0) )) this else strip(Some(jso),prevJn,List(indOld)) }
       case _ =>  JsStack.nil } }
 
   /* Verwijder of nummer ind of alle waarden gelijk aan jssRemove */
@@ -348,6 +347,8 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
     else curr.head match
     { case JsObject(seq) => pack(seq,i)
       case JsArray(seq)  => pack(seq,i)
+      //TODO: Is dit wel juist, het origineel teruggeven als de selectie niet mogelijk is?
+      // Lijkt niet constistent met andere implementaties zoasl bij key selecties.
       case _             => this } }
 
    /** TO TEST
@@ -370,18 +371,21 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
      * | (-1,3) equals takeRight 3 (but elements are reversed)
      *
      * But with step other selections are possible to!
-     * [1,2,3,4,5,6] | (1, -1,-1)  gives [2,1,6,5,4,3]
-     * [1,2,3,4,5,6] | (1,  0,-1)  gives [2,1]
-     * [1,2,3,4,5,6] | (1,  0, 2)  gives [2,4,6]
-     * [1,2,3,4,5,6] | (1, 10, 2)  gives [1,3,5,1,3,5,1,3,5,1]
-     * [1,2,3,4,5,6] | (5,  3, 6)  gives [6,6,6]
+     * [1,2,3,4,5,6] |% (1, -1,-1)  gives [2,1,6,5,4,3]
+     * [1,2,3,4,5,6] |% (1,  0,-1)  gives [2,1]
+     * [1,2,3,4,5,6] |% (1,  0, 2)  gives [2,4,6]
+     * [1,2,3,4,5,6] |% (1, 10, 2)  gives [1,3,5,1,3,5,1,3,5,1]
+     * [1,2,3,4,5,6] |% (5,  3, 6)  gives [6,6,6]
      *
      */
-  def | (from: Int, size: Int, step: Int = 1): JsStack = sub(from, size, step)
+  //!! Omvormen van | naar |% (van het is eigenlijk geen select operatie maar een filter) ??
+  def |% (from: Int, size: Int, step: Int = 1): JsStack = sub(from, size, step)
   def sub(from: Int, size: Int, step: Int = 1): JsStack =
   { this match
     { case JsStack(Some(JsObject(seq)),prevJn,ind) => if (seq.size==0) this else strip( Some(JsObject(traverse(seq,from,size,step))),prevJn,List(ind) )
       case JsStack(Some(JsArray(seq)),prevJn,ind)  => if (seq.size==0) this else strip( Some(JsArray(traverse(seq,from,size,step))),prevJn,List(ind) )
+      //TODO: Is dit wel juist, het origineel teruggeven als de selectie niet mogelijk is?
+      // Lijkt niet constistent met andere implementaties zoasl bij key selecties.
       case _                                       => this } }
 
 
@@ -478,6 +482,42 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case `last`   => get(-1)
       case _ => JsStack.nil } }
 
+  //!! Nieuwe selector voor arrays.
+  /** MINIMALLY TESTED
+   *  Select the first ocurrence of an  object from a array of objects based on the presence
+   *  of a key,value pair. If used on an object the object is tested for the presence
+   *  and returned when true. For simple types and non fitted objects JsStack.nil is returned.
+   */
+  def |  (kvs: PairJx): JsStack = get(kvs)
+  def get(kvs: PairJx): JsStack =
+  { if (isNil) this
+    else curr.head  match
+    { case JsObject(seq)  => if (hasPair(kvs)) this else JsStack.nil
+      case JsArray(seq)   =>
+      { val ind = seq.indexWhere( _.hasPair(unpack(kvs) ) )
+        if (ind>=0) pack(seq,ind) else JsStack.nil }
+      case _              => JsStack.nil } }
+
+
+    //!! Nieuwe selector voor arrays.
+    /** MINIMALLY TESTED
+     *  Find the first JsValue in the array or object that fulfills the test and return it.
+     *  For simple types the value is returned if it fullfills the test. In other cases
+     *  JsUndefined is retured.
+     */
+  def |  (fn: (JsStack => Boolean)): JsStack = get(fn)
+  def get(f: JsStack => Boolean): JsStack =
+  { if (isNil) this
+    else curr.head  match
+    { case JsObject(seq)  =>
+      { val ind = seq indexWhere( test(f) compose pack )
+        if (ind>=0) pack(seq,ind) else JsStack.nil }
+      case JsArray(seq)   =>
+      { val ind = seq indexWhere( f compose pack )
+        if (ind>=0) pack(seq,ind) else JsStack.nil }
+      case _              =>  if ( f(this) ) this else JsStack.nil } }
+
+
   /** TO TEST
    * Opens one or more json documents returning a future. The open method must accept a string
    * and must return one JsFuture upon return. The open operator |@ can be called upon a JsString
@@ -497,7 +537,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
      } }
 
   /** MINIMALLY TESTED
-   * Select all pairs that equal kvs in the object or objects in array.
+   * Greps all pairs that equal kvs in the object or objects in array.
    * that posses and kvs pair. This operation is gives an emty trail on simple types.
    *
    *  json = { "number" : 42,
@@ -511,9 +551,10 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    *                        {"name": "Klaas", "age": 19, "id": false} ],
    *           "number" : 43 }
    *
-   *   json | "membs" | ("id"->j(false))     gives [{"name":"Klaas","age":19,"id":false}]
+   *   json | "membs" |% ("id"->j(false))     gives [{"name":"Klaas","age":19,"id":false}]
    */
-  def |  (kvs: PairJx): JsStack = grep(kvs)
+  //!! Omvormen van | naar |% (van het is eigenlijk geen select operatie maar een filter) ??
+  def |%  (kvs: PairJx): JsStack = grep(kvs)
   def grep(kvs: PairJx): JsStack =
   { if ( isNil || isNil(kvs) ) JsStack.nil
     else this match
@@ -526,7 +567,8 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    * that posses and kvs pair. This operation is gives an emty trail on simple types.
    * Example: see grep.
    */
-  def |! (kvs: PairJx): JsStack = grepNot(kvs)
+  //!! Omvormen van | naar |% (van het is eigenlijk geen select operatie maar een filter) ??
+  def |%! (kvs: PairJx): JsStack = grepNot(kvs)
   def grepNot(kvs: PairJx): JsStack =
   { if ( isNil || isNil(kvs) ) JsStack.nil
     else this match
@@ -784,9 +826,9 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    *                        {"name": "Klaas", "age": 19, "id": false} ],
    *           "number" : 43 }
    *
-   *   json | "numbs"  |= false |>            gives the json with numbs replaced by  {"een": "1", "twee": "2", "drie":"3"}
+   *   json | "numbs"  |% false |>            gives the json with numbs replaced by  {"een": "1", "twee": "2", "drie":"3"}
    */
-  def |= (keep: Boolean) = flatten(keep)
+  def |% (keep: Boolean) = flatten(keep)
   def flatten(keep: Boolean): JsStack =
   { if (isNil) this
     else this match
@@ -887,12 +929,13 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    *                        {"name": "Klaas", "age": 19, "id": false} ],
    *           "number" : 43 }
    *
-   *   json | "object" |! { js => js.to[Int](0)<2 }    gives  {"twee":2,"drie":3}
-   *   json | "membs"  |  { js => ((js|"age")|>0)>30 } gives  [{"name":"Piet","age":43, "id": true}]
-   *   json | "number" |  { js => js.to[Int](0)==42 }  gives  true
+   *   json | "object" |%! { js => js.to[Int](0)<2 }    gives  {"twee":2,"drie":3}
+   *   json | "membs"  |%  { js => ((js|"age")|>0)>30 } gives  [{"name":"Piet","age":43, "id": true}]
+   *   json | "number" |%  { js => js.to[Int](0)==42 }  gives  true
    */
-  def |  (fn: (String,JsValue) => Boolean): JsStack   = filterPairs(fn)
-  def |  (fn: (JsStack => Boolean)): JsStack = filter(fn)
+  //!! Omvormen van | naar |% (van het is eigenlijk geen select operatie maar een filter) ??
+  def |%  (fn: (String,JsValue) => Boolean): JsStack   = filterPairs(fn)
+  def |%  (fn: (JsStack => Boolean)): JsStack = filter(fn)
 
   /** MINIMALLY TESTED
    *  Filter function solely based on value
@@ -945,6 +988,8 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
   /** MINIMALLY TESTED
    *  Filter function based on key and value
    */
+  // TODO: Is dit nog nodig? er staat een JsValue als pair. Heel vreemd, moet dat ggen JsStack zijn??
+  // we hebben 'm wel in JsVasic als filter, maar niet als selector. Naar kijken, lijkt niet veel gebruikt.
   def filterPairs(f: (String,JsValue) => Boolean): JsStack =
   { if (isNil) this
     else this match
@@ -970,7 +1015,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    *  Any other value qualifies as false. Conversion from number to boolean
    *  follows the C standard, that is 0 qualifies for false, the rest is true
    */
-  def |= (jt: JsPointer): JsStack  = cast(jt)
+  def |% (jt: JsPointer): JsStack  = cast(jt)
   def cast(jt: JsPointer): JsStack =
   { val trueVals = List("true","yes","on","in")
     (this,jt) match
@@ -1063,9 +1108,12 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
   def isFilled: Boolean = !isNil && !curr.head.isEmpty
 
   /** TO TEST
-   *  Use this to select the first filled alternative in a row, or the
-   *  last when none is filled. Note that the operator starts with a ?
-   *  thus preceding precedence, reducing the need for extra  ()
+   *  Use this to select the first filled alternative in a row, like
+   *  j1 ?| j2 ?| j3 ?| j4 or the last when none is filled. Note that
+   *  the operator starts with a ?  thus preceding precedence, reducing the
+   *  need for () in something like this:
+   *  j |+ j1 ?| j2      is read as  j |+ (j1 ?| j2)
+   *  j |+ k -> j1?|j2   is read as  j |+ (k->(j1?|j2))
    */
   def ?| (js: => JsStack) = alternative(js)
   def alternative (js: => JsStack) = if (isFilled) this else js
@@ -1150,7 +1198,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
 
 
   def |+ (vs: JsStack): JsStack                       = addArr((-1,vs))
-  def |+ (kvs: PairJx): JsStack                       = addObj(kvs)
+  def |+ (kvs: PairJx): JsStack                       = addObj(kvs)   //!!
   def |+? (kv: PairJx): JsStack                       = addObjWhen(kv,true)
   def |+!? (kv: PairJx): JsStack                      = addObjWhen(kv,false)
 
@@ -1179,7 +1227,29 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case ((key:String, loc:Int), jvs: JsStack) => setObj((key,jvs),loc)
       case _ => this } }
 
-  def addObj(kvs: PairJx): JsStack                        = attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
+  //def addObj(kvs: PairJx): JsStack                        = attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
+//   def addObjAlt(kvs: PairJx): JsStack =
+//   { if ( isNil || isNil(kvs) ) this
+//     else curr.head  match
+//    { case JsObject(_)    => attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
+//      case JsArray(seq)   =>
+//      { val ind = seq.indexWhere( _.hasPair(unpack(kvs) ) )
+//        if (ind>=0) pack(seq,ind)
+//        else attachToArray(JsStack(JsObject(Seq(unpack(kvs)))),-1,true).get(-1)  }
+//      case _              => JsStack.nil } }
+
+   def addObj(kvs: PairJx): JsStack =
+   { if ( isNil || isNil(kvs) ) this
+     else curr.head  match
+     { case JsObject(_)    => attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
+       case JsArray(seq)   =>
+       { val ind = seq.indexWhere( _.hasPair(unpack(kvs) ) )
+         if (ind>=0) pack(seq,ind)
+         else
+         { val ssq = JsObject(Seq(unpack(kvs)))
+           JsStack(Some(ssq),Some(attachToArray(pack(ssq),-1,true)),seq.size) } }
+       case _              => JsStack.nil } }
+
   def addObj(kvs: PairJx, loc: Int): JsStack              = attachToObject(kvs._2,loc,kvs._1,true,false,false,false)
   def setObj(kvs: PairJx, loc: Int): JsStack              = attachToObject(kvs._2,loc,kvs._1,false,false,false,false)
   def addObjWhen(kvs: PairJx, present: Boolean): JsStack  = attachToObject(kvs._2,-1,kvs._1,true,true,present,!present)

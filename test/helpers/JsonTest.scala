@@ -65,6 +65,7 @@ object jsConstants
   val resMan9 = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
   val resManA = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
   val resManB = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
+  val resManC = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":91,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
 }
 
 
@@ -88,6 +89,10 @@ class JsonTest extends Specification
       (source | List("object","een") )  ===  j(1)
       (source | List("membs",1,"age") )  ===  j(43)
       (source | List("membs","1","age") )  ===  j(43)
+      (source | "object" | "twee"->j(2) )  ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
+      (source | "object" | "twee"->j("2") ).toString   ===  JsUndefined("Pair not present").toString
+      (source | "object" | (_ => true))    ===  j(1)
+      (source | "object" | (j => (j |> 0) > 1))   ===  j(2)
     }
 
     "survive array selections" in
@@ -103,6 +108,9 @@ class JsonTest extends Specification
       (source | "object" | -1)       ===  j(3)    //JP(""" { "drie": 3 } """)
       (source | "number" | first)    ===  j(42)
       (source | "emparr" | 0) .toString  ===  (JsUndefined("Index on empty array").toString)
+      (source | "membs"  | "age"->j(43))   ===  JP(""" { "name": "Piet", "age": 43, "id": true} """)
+      (source | "membs"  | "name"->j("truus")).toString   ===  JsUndefined("Pair not present").toString
+      (source | "array"  | ( j => (j |> "") == "2"))   === j("2")
     }
 
     "survive object manipulations" in
@@ -150,6 +158,9 @@ class JsonTest extends Specification
       (source | "object" |+!? "vier"->j(4))   ===  JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4  } """)
       (source |+ "string")                    ===  j("FooBar")
       (source |+ List("piet","kees") |+ "test"->j("kees")) ===  JP(""" { "test" : "kees" } """)
+      (source | "words" |+ "een"->j("one") |+ "tien"->j("ten"))  ===  JP(""" { "een": "one", "tien": "ten" } """)
+      (source | "membs" |+ "name"->j("Jan") |+ "age"->j(91))     ===  JP(""" { "name": "Jan",  "age": 91, "id": true} """)
+      (source | "membs" |+ "name"->j("truus") |+ "age"->j(19))   ===  JP(""" { "name": "truus",  "age": 19 } """)
     }
 
      "survive reversing" in
@@ -185,21 +196,18 @@ class JsonTest extends Specification
     }
 
     "survive filters" in
-    { (source | "object" |  { js => js.to[Int](0)>=2})     ===  JP(""" {"twee":2,"drie":3} """)
-      (source | "number" |  { js => js.to[Int](0)==42 })  ===  (JsBoolean(true))
-      (source | "membs"  |  { js => ((js|"age")|>0)>30 }) ===  JP(""" [{"name":"Piet","age":43, "id":true}] """)
-      (source |  { (k,js) => (js.isEmpty) })              ===  JP(""" {"empobj" : {},"emparr" : [] } """)
-      (source |  { (k,js) => (k=="number") })             ===  JP(""" {"number" : 42,"number" : 43} """)
+    { (source | "object" |%  { js => js.to[Int](0)>=2})     ===  JP(""" {"twee":2,"drie":3} """)
+      (source | "number" |%  { js => js.to[Int](0)==42 })  ===  (JsBoolean(true))
+      (source | "membs"  |%  { js => ((js|"age")|>0)>30 }) ===  JP(""" [{"name":"Piet","age":43, "id":true}] """)
+      (source |%  { (k,js) => (js.isEmpty) })              ===  JP(""" {"empobj" : {},"emparr" : [] } """)
+      (source |%  { (k,js) => (k=="number") })             ===  JP(""" {"number" : 42,"number" : 43} """)
       (source | "membs" |/! { js => (js|"id") } )         ===    JP(""" [ { "name": "Jan",  "age": 23, "id": true}, { "name": "Klaas", "age": 19, "id": false} ] """)
       (source | "membs" |\! { js => (js|"id") } )         ===    JP(""" [ { "name": "Piet", "age": 43, "id": true}, { "name": "Klaas", "age": 19, "id": false} ] """)
-
-
-
     }
 
     "survive greppers" in
-    { (source | "membs" | ("id"->j(false)) )    ===  JP(""" [{"name":"Klaas","age":19,"id":false}] """)
-      (source | "membs" |! ("id"->j(false)) )   ===  JP(""" [{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true}] """)
+    { (source | "membs" |% ("id"->j(false)) )    ===  JP(""" [{"name":"Klaas","age":19,"id":false}] """)
+      (source | "membs" |%! ("id"->j(false)) )   ===  JP(""" [{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true}] """)
     }
 
     "survive counting" in
@@ -267,6 +275,11 @@ class JsonTest extends Specification
       (sourcex | List("membs",1,"age") |>> )  ===  J(43)
       (sourcex | List("membs","1","age") |>> )  ===  J(43)
       (sourcex | List("membs",true,"age") |>> )  ===  JsStack.nil
+      (sourcex | "object" | "twee"->J(2) |>> )  === JsStack( JP(""" { "een": 1, "twee": 2, "drie": 3 } """) )
+      (sourcex | "object" | "twee"->J("2") )   ===  JsStack.nil
+      (sourcex | "object" | (_ => true) |>> )    ===  J(1)
+      (sourcex | "object" | (j => (j |> 0) > 1) |>>  )   ===  J(2)
+
     }
 
     "survive array selections" in
@@ -281,6 +294,10 @@ class JsonTest extends Specification
       (sourcex | "object" | -1 |>> )    ===  J(3)
       (sourcex | "number" | 0 |>> )   ===  J(42)
       (sourcex | "emparr" | 0 |>> )   ===  JsStack.nil
+      (sourcex | "membs"  | "age"->J(43) |>> )   ===  JsStack(  JP(""" { "name": "Piet", "age": 43, "id": true} """) )
+      (sourcex | "membs"  | "name"->J("truus"))   ===  JsStack.nil
+      (sourcex | "array"  | ( j => (j |> "") == "2") |>> )   === J("2")
+
     }
 
 
@@ -329,6 +346,12 @@ class JsonTest extends Specification
       (sourcex | "object" |+? "vier"->J(4) |> JsUndefined("") )    ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
       (sourcex | "object" |+!? "drie"->J(4) |> JsUndefined("") )   ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
       (sourcex | "object" |+!? "vier"->J(4) |> JsUndefined("") )   ===  JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4  } """)
+      (sourcex | "words" |+ "een"->J("one") |+ "tien"->J("ten") |> JsUndefined("") )  ===  JP(""" { "een": "one", "tien": "ten" } """)
+      (sourcex | "membs" |+ "name"->J("Jan") |+ "age"->J(91)  |> JsUndefined("") )     ===  JP(""" { "name": "Jan",  "age": 91, "id": true} """)
+      (sourcex | "membs" |+ "name"->J("Jan") |+ "age"->J(91)  |> )   === JsStack( resManC)
+      (sourcex | "membs" |+ "name"->J("Truus") |+ "age"->J(18) |> JsUndefined("") )   ===  JP(""" { "name": "Truus",  "age": 18 } """)
+
+
     }
 
     "survive reversing" in
@@ -359,7 +382,7 @@ class JsonTest extends Specification
     }
 
     "survive flattening" in
-    { (sourcex | "numbs"  |= false |>  )    === ! valresFlat1
+    { (sourcex | "numbs"  |% false |>  )    === ! valresFlat1
     }
 
     "survive mapping" in
@@ -374,20 +397,19 @@ class JsonTest extends Specification
     }
 
     "survive filters" in
-    { (sourcex | "object" |  { js => js.lastTo[Int](0)>=2} |> JsUndefined(""))    ===  JP(""" {"twee":2,"drie":3} """)
-      (sourcex | "number" |  { js => js.lastTo[Int](0)==42 } |> JsUndefined(""))  ===  (JsBoolean(true))
-      (sourcex | "membs"  |  { js => ((js|"age")|>0)>30 } |> JsUndefined(""))     ===  JP(""" [{"name":"Piet","age":43, "id":true}] """)
-       (sourcex |  { (k,js) => (js.isEmpty) })              ===  ! JP(""" {"empobj" : {},"emparr" : [] } """)
-      (sourcex |  { (k,js) => (k=="number") })             ===  ! JP(""" {"number" : 42,"number" : 43} """)
+    { ((sourcex | "object" |%  { js => js.lastTo[Int](0)>=2} )   |> JsUndefined(""))    ===  JP(""" {"twee":2,"drie":3} """)
+      ((sourcex | "number" |%  { js => js.lastTo[Int](0)==42 } ) |> JsUndefined(""))  ===  (JsBoolean(true))
+      ((sourcex | "membs"  |%  { js => ((js|"age")|>0)>30 } ) |> JsUndefined(""))     ===  JP(""" [{"name":"Piet","age":43, "id":true}] """)
+      (sourcex |%  { (k,js) => (js.isEmpty) })              ===  ! JP(""" {"empobj" : {},"emparr" : [] } """)
+      (sourcex |%  { (k,js) => (k=="number") })             ===  ! JP(""" {"number" : 42,"number" : 43} """)
       ((sourcex | "membs" |/! { js => (js|"id") } ) |> )    ===  ! valresDistF
       ((sourcex | "membs" |\! { js => (js|"id") } ) |> )    ===  ! valresDistB
-
     }
 
 
     "survive greppers" in
-    { ((sourcex | "membs" | ("id"->J(false)) ) |> JsUndefined(""))   ===  JP(""" [{"name":"Klaas","age":19,"id":false}] """)
-      ((sourcex | "membs" |! ("id"->J(false)) ) |> JsUndefined(""))  ===  JP(""" [{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true}] """)
+    { ((sourcex | "membs" |% ("id"->J(false)) ) |> JsUndefined(""))   ===  JP(""" [{"name":"Klaas","age":19,"id":false}] """)
+      ((sourcex | "membs" |%! ("id"->J(false)) ) |> JsUndefined(""))  ===  JP(""" [{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true}] """)
     }
 
     "survive counting" in

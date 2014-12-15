@@ -85,9 +85,14 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def | (i: Int): JsFuture = get(i)
   def get(i: Int): JsFuture = pack(_.get(i))
 
-  def | (from: Int, size: Int, step: Int = 1): JsFuture  = sub(from, size, step)
-  def sub(from: Int, size: Int, step: Int = 1): JsFuture = pack(_.sub(from,size,step))
+  def | (kvs: PairJx): JsFuture = get(kvs)
+  def get(kvs: PairJx): JsFuture = pack(_.get(kvs))
 
+  def | (fn: (JsStack => Boolean)): JsFuture = get(fn)
+  def get(f: JsStack => Boolean): JsFuture = pack(_.get(f))
+
+  def |% (from: Int, size: Int, step: Int = 1): JsFuture  = sub(from, size, step)
+  def sub(from: Int, size: Int, step: Int = 1): JsFuture = pack(_.sub(from,size,step))
 
   def | (s: String): JsFuture = get(s,0)
   def |& (s: String, occ: Int): JsFuture = get(s,occ)
@@ -108,10 +113,10 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |@ (get: String => JsFuture): JsFuture  = open(get)
   def open(get: String => JsFuture): JsFuture = fpack(_.open(get))
 
-  def |  (kvs: PairJx): JsFuture = grep(kvs)
+  def |%  (kvs: PairJx): JsFuture = grep(kvs)
   def grep(kvs: PairJx): JsFuture = pack(_.grep(kvs))
 
-  def |! (kvs: PairJx): JsFuture = grepNot(kvs)
+  def |%! (kvs: PairJx): JsFuture = grepNot(kvs)
   def grepNot(kvs: PairJx): JsFuture = pack(_.grepNot(kvs))
 
   def |* (f: JsStack => JsStack): JsFuture = map(f)
@@ -136,10 +141,10 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |^*(keykey: String, valkey: String): Future[Map[JsStack,JsStack]]     = peelMap(keykey,valkey)
   def peelMap(keykey: String, valkey: String): Future[Map[JsStack,JsStack]] = jsf.map(_.peelMap(keykey,valkey))
 
-  def |= (keep: Boolean): JsFuture     = flatten(keep)
+  def |% (keep: Boolean): JsFuture     = flatten(keep)
   def flatten(keep: Boolean): JsFuture = pack(_.flatten(keep))
 
-  def |= (jt: JsPointer): JsFuture  = cast(jt)
+  def |% (jt: JsPointer): JsFuture  = cast(jt)
   def cast(jt: JsPointer): JsFuture = pack(_.cast(jt))
 
   def |** (pad: Boolean, default: JsStack = JsStack.nil): JsFuture  = transpose(pad,default)
@@ -149,8 +154,8 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
 
   def flatObj(keepMultipleKeys: Boolean): JsFuture = pack(_.flatObj(keepMultipleKeys))
 
-  def |  (fn: (String,JsValue) => Boolean): JsFuture   = filterPairs(fn)
-  def |  (fn: (JsStack => Boolean)): JsFuture = filter(fn)
+  def |%  (fn: (String,JsValue) => Boolean): JsFuture   = filterPairs(fn)
+  def |%  (fn: (JsStack => Boolean)): JsFuture = filter(fn)
 
   def filter(f: JsStack => Boolean): JsFuture = pack(_.filter(f))
 
@@ -297,10 +302,15 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |&+[T](lvs: (T,JsFuture))(implicit d: DummyImplicit): JsFuture =  pack(lvs._2, (js,jn) => js.|&+((lvs._1,jn)))
   def |%+[T](lvs: (T,JsFuture))(implicit d: DummyImplicit): JsFuture =  pack(lvs._2, (js,jn) => js.|%+((lvs._1,jn)))
 
-  def addObj(kvs: PairJx): JsFuture                        = pack(_.attachToObject(kvs._2,-1,kvs._1,true,true,false,false))
-  def addObj(kvs: PairJx, loc: Int): JsFuture              = pack(_.attachToObject(kvs._2,loc,kvs._1,true,false,false,false))
-  def setObj(kvs: PairJx, loc: Int): JsFuture              = pack(_.attachToObject(kvs._2,loc,kvs._1,false,false,false,false))
-  def addObjWhen(kvs: PairJx, present: Boolean): JsFuture  = pack(_.attachToObject(kvs._2,-1,kvs._1,true,true,present,!present))
+//  def addObj(kvs: PairJx): JsFuture                        = pack(_.attachToObject(kvs._2,-1,kvs._1,true,true,false,false))
+//  def addObj(kvs: PairJx, loc: Int): JsFuture              = pack(_.attachToObject(kvs._2,loc,kvs._1,true,false,false,false))
+//  def setObj(kvs: PairJx, loc: Int): JsFuture              = pack(_.attachToObject(kvs._2,loc,kvs._1,false,false,false,false))
+//  def addObjWhen(kvs: PairJx, present: Boolean): JsFuture  = pack(_.attachToObject(kvs._2,-1,kvs._1,true,true,present,!present))
+
+  def addObj(kvs: PairJx): JsFuture                        = pack(_.addObj(kvs))
+  def addObj(kvs: PairJx, loc: Int): JsFuture              = pack(_.addObj(kvs,loc))
+  def setObj(kvs: PairJx, loc: Int): JsFuture              = pack(_.setObj(kvs,loc))
+  def addObjWhen(kvs: PairJx, present: Boolean): JsFuture  = pack(_.addObjWhen(kvs,present))
 
   def addFutObj(kvs: PairJxf): JsFuture                        = pack(kvs._2, (js,jn) => js.attachToObject(jn,-1,kvs._1,true,true,false,false))
   def addFutObj(kvs: PairJxf, loc: Int): JsFuture              = pack(kvs._2, (js,jn) => js.attachToObject(jn,loc,kvs._1,true,false,false,false))

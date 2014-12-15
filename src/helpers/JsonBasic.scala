@@ -71,10 +71,12 @@ object JsonBasic
     def isFilled = !isEmpty
 
     /** TO TEST
-     *  Use this to select the first filled alternative in a row, or the
-     *  last when none is filled. Note that
+     *  Use this to select the first filled alternative in a row, like
+     *  j1 ?| j2 ?| j3 ?| j4 or the last when none is filled. Note that
      *  the operator starts with a ?  thus preceding precedence, reducing the
-     *  need for ()
+     *  need for () in something like this:
+     *  j |+ j1 ?| j2      is read as  j |+ (j1 ?| j2)
+     *  j |+ k -> j1?|j2   is read as  j |+ (k->(j1?|j2))
      */
     def ?| (js: => JsValue) = alternative(js)
     def alternative (jv: => JsValue) = if (isFilled) this else jv
@@ -344,7 +346,7 @@ object JsonBasic
      * only works on arrays, application on other types is an error,
      * and will result in an JsUndefined.
      */
-    def |= (keep: Boolean) = flatten(keep)
+    def |% (keep: Boolean) = flatten(keep)
     def flatten(keep: Boolean): JsValue =
     { js match
       { case JsArray(seq) =>
@@ -538,17 +540,12 @@ object JsonBasic
      *                        {"name": "Klaas", "age": 19, "id": false} ],
      *           "number" : 43 }
      *
-     *   json | "object" |  { js => js.to[Int](0)>=2 }   gives  {"twee":2,"drie":3}
-     *   json | "membs"  |  { js => ((js|"age")|>0)>30 } gives  [{"name":"Piet","age":43, "id": true}]
-     *   json | "number" |  { js => js.to[Int](0)==42 }  gives  true
+     *   json | "object" |%  { js => js.to[Int](0)>=2 }   gives  {"twee":2,"drie":3}
+     *   json | "membs"  |%  { js => ((js|"age")|>0)>30 } gives  [{"name":"Piet","age":43, "id": true}]
+     *   json | "number" |%  { js => js.to[Int](0)==42 }  gives  true
      */
-    def |  (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs(fn)
-    def |  (fn: (JsValue => Boolean)): JsValue = js.filter(fn)
-
-//    @deprecated("This will be removed","Use standard filter with manual negation.")
-//    def |! (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs((x,y) => !fn(x,y))
-//    @deprecated("This will be removed","Use standard filter with manual negation.")
-//    def |! (fn: (JsValue => Boolean)): JsValue = js.filter( (x) => !fn(x) )
+    def |%  (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs(fn)
+    def |%  (fn: (JsValue => Boolean)): JsValue = js.filter(fn)
 
     /** MINIMALLY TESTED
      *  Filter function solely based on value. Only keep those values in an array
@@ -558,7 +555,7 @@ object JsonBasic
     { js match
       { case JsObject(seq) => JsObject(seq filter { case (k,v) => f(v) })
         case JsArray(seq)  => JsArray(seq filter f)
-        case js : JsValue => JsBoolean(f(js)) } }
+        case _             => JsBoolean(f(js)) } }
 
 
     /** MINIMALLY TESTED
@@ -593,7 +590,7 @@ object JsonBasic
 
 
     /** MINIMALLY TESTED
-     * Select all pairs that equal kvs in the object or objects in array.
+     * Greps all pairs that equal kvs in the object or objects in array.
      * that posses and kvs pair. This operation is not defined on simple types.
      *
      *  json = { "number" : 42,
@@ -607,9 +604,9 @@ object JsonBasic
      *                        {"name": "Klaas", "age": 19, "id": false} ],
      *           "number" : 43 }
      *
-     *   json | "membs" | ("id"->j(false))     gives [{"name":"Klaas","age":19,"id":false}]
+     *   json | "membs" |% ("id"->j(false))     gives [{"name":"Klaas","age":19,"id":false}]
      */
-    def | (kv: PairJ): JsValue = js.grep(kv)
+    def |% (kv: PairJ): JsValue = js.grep(kv)
     def grep(kv: PairJ): JsValue =
     { js match
       { //case JsObject(seq) => JsObject(seq filter { case (k,v) => (k==kv._1 && v==kv._2) })   // <== is dit wel logisch?, er blijft eigelijk maar een key in het object over!
@@ -622,7 +619,7 @@ object JsonBasic
      * that posses and kvs pair. This operation is not defined on simple types.
      * Example: see grep.
      */
-    def |! (kv: PairJ): JsValue = js.grepNot(kv)
+    def |%! (kv: PairJ): JsValue = js.grepNot(kv)
     def grepNot(kv: PairJ): JsValue =
     { js match
       { //case JsObject(seq) => JsObject(seq filterNot { case (k,v) => (k==kv._1 && v==kv._2) })
@@ -735,6 +732,8 @@ object JsonBasic
     { js match
       { case JsObject(seq) => if (seq.size==0) JsUndefined("Index on empty object") else seq(modulo(i,seq.size))._2
         case JsArray(seq)  => if (seq.size==0) JsUndefined("Index on empty array") else seq(modulo(i,seq.size))
+        //TODO: Is dit wel juist, het origineel teruggeven als de selectie niet mogelijk is?
+        // Lijkt niet constistent met andere implementaties zoasl bij key selecties.
         case _ => js } }
 
    /** TO TEST
@@ -757,18 +756,20 @@ object JsonBasic
      * | (-1,3) equals takeRight 3 (but elements are reversed)
      *
      * But with step other selections are possible to!
-     * [1,2,3,4,5,6] | (1, -1,-1)  gives [2,1,6,5,4,3]
-     * [1,2,3,4,5,6] | (1,  0,-1)  gives [2,1]
-     * [1,2,3,4,5,6] | (1,  0, 2)  gives [2,4,6]
-     * [1,2,3,4,5,6] | (1, 10, 2)  gives [1,3,5,1,3,5,1,3,5,1]
-     * [1,2,3,4,5,6] | (5,  3, 6)  gives [6,6,6]
+     * [1,2,3,4,5,6] |% (1, -1,-1)  gives [2,1,6,5,4,3]
+     * [1,2,3,4,5,6] |% (1,  0,-1)  gives [2,1]
+     * [1,2,3,4,5,6] |% (1,  0, 2)  gives [2,4,6]
+     * [1,2,3,4,5,6] |% (1, 10, 2)  gives [1,3,5,1,3,5,1,3,5,1]
+     * [1,2,3,4,5,6] |% (5,  3, 6)  gives [6,6,6]
      *
      */
-    def | (from: Int, size: Int, step: Int = 1): JsValue = sub(from, size, step)
+    def |% (from: Int, size: Int, step: Int = 1): JsValue = sub(from, size, step)
     def sub(from: Int, size: Int, step: Int = 1): JsValue =
     { js match
       { case JsObject(seq) => if (seq.size==0) js else JsObject(traverse(seq,from,size,step))
         case JsArray(seq)  => if (seq.size==0) js else JsArray(traverse(seq,from,size,step))
+        //TODO: Is dit wel juist, het origineel teruggeven als de selectie niet mogelijk is?
+        // Lijkt niet constistent met andere implementaties zoasl bij key selecties.
         case _             => js } }
 
 
@@ -943,7 +944,7 @@ object JsonBasic
      *  Any other value qualifies as false. Conversion from number to boolean
      *  follows the C standard, that is 0 qualifies for false, the rest is true
      */
-    def |= (jt: JsPointer): JsValue  = cast(jt)
+    def |% (jt: JsPointer): JsValue  = cast(jt)
     def cast(jt: JsPointer): JsValue =
     { val trueVals = List("true","yes","on","in")
       (js,jt) match
@@ -1047,23 +1048,58 @@ object JsonBasic
     def rekey(kk: (String,String)): JsValue =
     { val (oldKey,newKey) = kk
       val jCopy = js.get(oldKey)
-      js.delObj(oldKey,None,true,0). addObj(newKey->jCopy) }
+      js.delObj(oldKey,None,true,0).addObj(newKey->jCopy) }
+
+
+    //!! Nieuwe selector voor arrays.
+    /** MINIMALLY TESTED
+     *  Select the first ocurrence of an  object from a array of objects based on the presence
+     *  of a key,value pair. If used on an object the object is tested for the presence
+     *  and returned when true. For simple types and non fitted objects JsUndefined is returned.
+     */
+    def |  (kv: PairJ): JsValue                = js.get(kv)
+    def get(kv: PairJ): JsValue =
+    { js match
+      { case JsObject(seq) => if (seq exists { case (k,v) => (k == kv._1 && v == kv._2) } ) js else JsUndefined("Pair not present")
+        case JsArray(seq)  => seq find ( _.hasPair(kv) ) getOrElse( JsUndefined("Pair not present") )
+        case _             => JsUndefined("Pair selection on simple type.") } }
+
+    //!! Nieuwe selector voor arrays.
+    /** MINIMALLY TESTED
+     *  Find the first JsValue in the array or object that fulfills the test and return it.
+     *  For simple types the value is returned if it fullfills the test. In other cases
+     *  JsUndefined is retured.
+     */
+    def |  (fn: (JsValue => Boolean)): JsValue = js.get(fn)
+    def get(f: JsValue => Boolean): JsValue =
+    { js match
+      { case JsObject(seq) => seq find { case (k,v) => f(v) } map(_._2) getOrElse( JsUndefined("Match not found") )
+        case JsArray(seq)  => seq find ( f(_) ) getOrElse( JsUndefined("Match not found") )
+        case _             => if (f(js) ) js else JsUndefined("No Match for simple type.")  } }
+
 
     /** MINIMALLY TESTED
      * Add a key,value pair to the object, if the key already
      * exists, it is replaced, multiple keys are deleted. A new
      * key is placed at the end. After return, the object is guaranteed
      * to contain the key exactly once, pointing to the given jsValue.
+     *
+     * If used on an array, the first object element of that array that
+     * contains this key,value pair is returned if it exists, otherwise
+     * a new object with this pair is constructed and returned.
      */
+    //!! Nieuwe selector voor arrays.
     def |+ (kv: PairJ): JsValue = addObj(kv)
     def addObj(kv: PairJ): JsValue =
     { val (k,v) = kv
       js match
-      { case JsObject(seq) =>
+      { case JsObject(seq)  =>
         { val keyCnt = seq.count(_._1 == k)
           if (keyCnt==0) JsObject(seq :+ kv)
           else JsObject( keySearch( seq, -1, k, (i,s,_)=>(if (i==0) s:+kv else s) )._2 ) }
-        case _             => JsUndefined("Key,Value pair added to non object" ) } }
+         case JsArray(seq)  =>
+         { seq find ( _.hasPair(kv) ) getOrElse( JsObject(Seq(kv)) ) }
+        case _              => JsUndefined("Key,Value pair added to non object or array" ) } }
 
     /** MINIMALLY TESTED
      * Add a key,value pair to the object, placed at a specific location.
@@ -1084,7 +1120,7 @@ object JsonBasic
 
     /** MINIMALLY TESTED
      * Add the pair only when the key is already present (present=true)
-     * of only if the key is absent (present=false). In other cases do nothing.
+     * or only if the key is absent (present=false). In other cases do nothing.
      * After return, the object is guaranteed
      * to contain the key exactly once.
      */
