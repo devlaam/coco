@@ -165,6 +165,7 @@ object JsonLib
   case object string  extends JsPointer
   case object number  extends JsPointer
   case object boolean extends JsPointer
+  case object filled  extends JsPointer
 
 
 

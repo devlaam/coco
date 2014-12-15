@@ -104,6 +104,8 @@ class JsonTest extends Specification
       (source | "array" | first)     ===  j("1")
       (source | "array" | centre)    ===  j("2")
       (source | "array" | last)      ===  j("3")
+      (source | "array" | filled)    ===  j("1")
+      (source | "emparr" | filled) .toString  ===  (JsUndefined("Match not found").toString)
       (source | "object" | 1)        ===  j(2)   //JP(""" { "twee": 2 } """)
       (source | "object" | -1)       ===  j(3)    //JP(""" { "drie": 3 } """)
       (source | "number" | first)    ===  j(42)
@@ -290,8 +292,10 @@ class JsonTest extends Specification
       (sourcex | "array" | first |>> )    ===  J("1")
       (sourcex | "array" | centre |>> )   ===  J("2")
       (sourcex | "array" | last |>> )     ===  J("3")
-      (sourcex | "object" | 1 |>> )    ===   J(2)
-      (sourcex | "object" | -1 |>> )    ===  J(3)
+      (sourcex | "array" | filled  |>>)   ===  J("1")
+      (sourcex | "emparr" | filled)       ===  JsStack.nil
+      (sourcex | "object" | 1 |>> )       ===   J(2)
+      (sourcex | "object" | -1 |>> )      ===  J(3)
       (sourcex | "number" | 0 |>> )   ===  J(42)
       (sourcex | "emparr" | 0 |>> )   ===  JsStack.nil
       (sourcex | "membs"  | "age"->J(43) |>> )   ===  JsStack(  JP(""" { "name": "Piet", "age": 43, "id": true} """) )

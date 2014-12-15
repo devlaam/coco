@@ -480,6 +480,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
     { case `first`  => get(0)
       case `centre` => get(size/2)
       case `last`   => get(-1)
+      case `filled` => get(_.isFilled)
       case _ => JsStack.nil } }
 
   //!! Nieuwe selector voor arrays.

@@ -798,6 +798,7 @@ object JsonBasic
       { case `first`  => js.get(0)
         case `centre` => js.get(size/2)
         case `last`   => js.get(-1)
+        case `filled` => js.get(_.isFilled)
         case _        => JsUndefined("Unrecognized pointer") } }
 
     /** MINIMALLY TESTED
