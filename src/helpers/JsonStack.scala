@@ -1035,6 +1035,31 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case (JsStack(Some(JsBoolean(b)),prevJn,ind) ,  `boolean`)   => this
       case _                                                       => JsStack.nil } }
 
+
+   private def testI(jt: JsPointer, invert: Boolean) =
+   { (this,jt) match
+     { case (JsStack(Some(JsObject(_)),_,_)  ,  `objekt`)  => !invert
+       case (_                               ,  `objekt`)  =>  invert
+       case (JsStack(Some(JsArray(_)),_,_)   ,   `array`)  => !invert
+       case (_                               ,   `array`)  =>  invert
+       case (JsStack(Some(JsString(_)),_,_)  ,  `simple`)  => !invert
+       case (JsStack(Some(JsNumber(_)),_,_)  ,  `simple`)  => !invert
+       case (JsStack(Some(JsBoolean(_)),_,_) ,  `simple`)  => !invert
+       case (_                               ,  `simple`)  =>  invert
+       case (JsStack(Some(JsString(_)),_,_)  ,  `string`)  => !invert
+       case (_                               ,  `string`)  =>  invert
+       case (JsStack(Some(JsNumber(_)),_,_)  ,  `number`)  => !invert
+       case (_                               ,  `number`)  =>  invert
+       case (JsStack(Some(JsBoolean(_)),_,_) , `boolean`)  => !invert
+       case (_                               , `boolean`)  =>  invert
+       case _                                              =>   false }}
+
+  /** MINIMALLY TESTED
+    * Determine the internal type resulting in a simple boolean.
+    * Nil values result in false.
+    */
+  def |?> (jt: JsPointer) = testI(jt,false)
+
   /** TO TEST
    * Simple conditional replace
    */
@@ -1057,25 +1082,24 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case _                                => false }
     new JsStackConditionalHelp(result,this) }
 
-   def testT(jt: JsPointer, invert: Boolean = false) =
-   { val result = (this,jt) match
-     { case (JsStack(Some(JsObject(_)),_,_)  ,  `objekt`)  => !invert
-       case (_                               ,  `objekt`)  =>  invert
-       case (JsStack(Some(JsArray(_)),_,_)   ,   `array`)  => !invert
-       case (_                               ,   `array`)  =>  invert
-       case (JsStack(Some(JsString(_)),_,_)  ,  `simple`)  => !invert
-       case (JsStack(Some(JsNumber(_)),_,_)  ,  `simple`)  => !invert
-       case (JsStack(Some(JsBoolean(_)),_,_) ,  `simple`)  => !invert
-       case (_                               ,  `simple`)  =>  invert
-       case (JsStack(Some(JsString(_)),_,_)  ,  `string`)  => !invert
-       case (_                               ,  `string`)  =>  invert
-       case (JsStack(Some(JsNumber(_)),_,_)  ,  `number`)  => !invert
-       case (_                               ,  `number`)  =>  invert
-       case (JsStack(Some(JsBoolean(_)),_,_) , `boolean`)  => !invert
-       case (_                               , `boolean`)  =>  invert
-       case _                                              =>   false }
-    new JsStackConditionalHelp(result,this) }
-
+  def testT(jt: JsPointer, invert: Boolean = false) = new JsStackConditionalHelp(testI(jt,invert),this)
+//  { val result = (this,jt) match
+//     { case (JsStack(Some(JsObject(_)),_,_)  ,  `objekt`)  => !invert
+//       case (_                               ,  `objekt`)  =>  invert
+//       case (JsStack(Some(JsArray(_)),_,_)   ,   `array`)  => !invert
+//       case (_                               ,   `array`)  =>  invert
+//       case (JsStack(Some(JsString(_)),_,_)  ,  `simple`)  => !invert
+//       case (JsStack(Some(JsNumber(_)),_,_)  ,  `simple`)  => !invert
+//       case (JsStack(Some(JsBoolean(_)),_,_) ,  `simple`)  => !invert
+//       case (_                               ,  `simple`)  =>  invert
+//       case (JsStack(Some(JsString(_)),_,_)  ,  `string`)  => !invert
+//       case (_                               ,  `string`)  =>  invert
+//       case (JsStack(Some(JsNumber(_)),_,_)  ,  `number`)  => !invert
+//       case (_                               ,  `number`)  =>  invert
+//       case (JsStack(Some(JsBoolean(_)),_,_) , `boolean`)  => !invert
+//       case (_                               , `boolean`)  =>  invert
+//       case _                                              =>   false }
+//    new JsStackConditionalHelp(result,this) }
 
 
   /** TO TEST

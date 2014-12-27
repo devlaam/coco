@@ -968,6 +968,32 @@ object JsonBasic
     def |+ (kjj: PairJJ)(implicit d: DummyImplicit) = replace(kjj._1,kjj._2)
     def replace(k: String, f: JsValue => JsValue): JsValue =  addObj((k,f(js.get(k))))
 
+
+   private def testI(jt: JsPointer, invert: Boolean) =
+   { (js,jt) match
+      { case (_:JsUndefined,        _ )  =>   false
+        case (JsObject(_)  ,  `objekt`)  => !invert
+        case (_            ,  `objekt`)  =>  invert
+        case (JsArray(_)   ,  `array` )  => !invert
+        case (_            ,  `array` )  =>  invert
+        case (JsString(_)  ,  `simple`)  => !invert
+        case (JsNumber(_)  ,  `simple`)  => !invert
+        case (JsBoolean(_) ,  `simple`)  => !invert
+        case (_            ,  `simple`)  =>  invert
+        case (JsString(_)  ,  `string`)  => !invert
+        case (_            ,  `string`)  =>  invert
+        case (JsNumber(_)  ,  `number`)  => !invert
+        case (_            ,  `number`)  =>  invert
+        case (JsBoolean(_) , `boolean`)  => !invert
+        case (_            , `boolean`)  =>  invert
+        case _                           =>   false } }
+
+    /** MINIMALLY TESTED
+    * Determine the internal type resulting in a simple boolean.
+    * Undefined values result in false.
+    */
+   def |?> (jt: JsPointer) = testI(jt,false)
+
    /** TO TEST
      * Simple conditional replace, note that the inverted version only works for
      * situations where a senseable test can be applied (for example, if the
@@ -988,25 +1014,25 @@ object JsonBasic
         case _            => false }
      new JsValueConditionalHelp(result,js) }
 
-    def testT(jt: JsPointer, invert: Boolean = false) =
-    { val result = (js,jt) match
-      { case (_:JsUndefined,        _ )  =>   false
-        case (JsObject(_)  ,  `objekt`)  => !invert
-        case (_            ,  `objekt`)  =>  invert
-        case (JsArray(_)   ,  `array` )  => !invert
-        case (_            ,  `array` )  =>  invert
-        case (JsString(_)  ,  `simple`)  => !invert
-        case (JsNumber(_)  ,  `simple`)  => !invert
-        case (JsBoolean(_) ,  `simple`)  => !invert
-        case (_            ,  `simple`)  =>  invert
-        case (JsString(_)  ,  `string`)  => !invert
-        case (_            ,  `string`)  =>  invert
-        case (JsNumber(_)  ,  `number`)  => !invert
-        case (_            ,  `number`)  =>  invert
-        case (JsBoolean(_) , `boolean`)  => !invert
-        case (_            , `boolean`)  =>  invert
-        case _                           =>   false }
-      new JsValueConditionalHelp(result,js) }
+    def testT(jt: JsPointer, invert: Boolean = false) =  new JsValueConditionalHelp(testI(jt,invert),js)
+//    { val result = (js,jt) match
+//      { case (_:JsUndefined,        _ )  =>   false
+//        case (JsObject(_)  ,  `objekt`)  => !invert
+//        case (_            ,  `objekt`)  =>  invert
+//        case (JsArray(_)   ,  `array` )  => !invert
+//        case (_            ,  `array` )  =>  invert
+//        case (JsString(_)  ,  `simple`)  => !invert
+//        case (JsNumber(_)  ,  `simple`)  => !invert
+//        case (JsBoolean(_) ,  `simple`)  => !invert
+//        case (_            ,  `simple`)  =>  invert
+//        case (JsString(_)  ,  `string`)  => !invert
+//        case (_            ,  `string`)  =>  invert
+//        case (JsNumber(_)  ,  `number`)  => !invert
+//        case (_            ,  `number`)  =>  invert
+//        case (JsBoolean(_) , `boolean`)  => !invert
+//        case (_            , `boolean`)  =>  invert
+//        case _                           =>   false }
+//      new JsValueConditionalHelp(result,js) }
 
     /** MINIMALLY TESTED
      * Remove all elements with a particular value from the array

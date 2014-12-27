@@ -249,6 +249,18 @@ class JsonTest extends Specification
       (source | "membs" | 0 | "id" |> false)  ===  true
      }
 
+    "survive type test" in
+    { (source  | "array" |?> `array` )     === true
+      (source  | "array" |?> `simple` )    === false
+      (source  | "object" |?> `objekt` )   === true
+      (source  | "object" |?> `simple` )   === false
+      (source  | "number" |?> `array` )    === false
+      (source  | "number" |?> `simple` )   === true
+      (source  | "number" |?> `number` )   === true
+      (source  | "number" |?> `boolean` ) === false
+    }
+
+
   }
 
 
@@ -452,6 +464,17 @@ class JsonTest extends Specification
       (sourcex | "membs" | 0 | "id" |> 42)     ===  42
       (sourcex | "membs" | 0 | "id" |> false)  ===  true
      }
+
+    "survive type test" in
+    { (sourcex  | "array" |?> `array` )     === true
+      (sourcex  | "array" |?> `simple` )    === false
+      (sourcex  | "object" |?> `objekt` )   === true
+      (sourcex  | "object" |?> `simple` )   === false
+      (sourcex  | "number" |?> `array` )    === false
+      (sourcex  | "number" |?> `simple` )   === true
+      (sourcex  | "number" |?> `number` )   === true
+      (sourcex  | "number" |?> `boolean` ) === false
+    }
 
   }
 

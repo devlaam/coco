@@ -168,6 +168,21 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |+ (f: JsStack => JsStack) = replace(f)
   def replace(f: JsStack => JsStack): JsFuture = pack(_.replace(f))
 
+  private def testI(jt: JsPointer, invert: Boolean) =
+  { this.jsf.map(js =>
+    (js,jt) match
+     { case (JsStack(Some(JsObject(_)),_,_)  , `objekt`) => !invert
+       case (_                               , `objekt`) => invert
+       case (JsStack(Some(JsArray(_)),_,_)   ,  `array`) => !invert
+       case (_                               ,  `array`) => invert
+       case (JsStack(Some(JsString(_)),_,_)  , `simple`) => !invert
+       case (JsStack(Some(JsNumber(_)),_,_)  , `simple`) => !invert
+       case (JsStack(Some(JsBoolean(_)),_,_) , `simple`) => !invert
+       case (_                               , `simple`) => invert
+       case _                                            => false } ) }
+
+  def |?> (jt: JsPointer) = testT(jt,false)
+
   protected case class JsFutureConditionalHelp(b: Boolean, self: JsFuture)
   { def || (t: JsStack => JsStack): JsFuture                        =  { if (b) self.replace(t) else self }
     def || (t: JsStack => JsStack, f: JsStack => JsStack): JsFuture =  { if (b) self.replace(t) else self.replace(f) } }
@@ -192,19 +207,19 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
       case _                                => false }
     new JsFutureConditionalHelp(result,this) }
 
-  def testT(jt: JsPointer, invert: Boolean = false) =
-  { val result = this.jsf.map(js =>
-    (js,jt) match
-     { case (JsStack(Some(JsObject(_)),_,_)  , `objekt`) => !invert
-       case (_                               , `objekt`) => invert
-       case (JsStack(Some(JsArray(_)),_,_)   ,  `array`) => !invert
-       case (_                               ,  `array`) => invert
-       case (JsStack(Some(JsString(_)),_,_)  , `simple`) => !invert
-       case (JsStack(Some(JsNumber(_)),_,_)  , `simple`) => !invert
-       case (JsStack(Some(JsBoolean(_)),_,_) , `simple`) => !invert
-       case (_                               , `simple`) => invert
-       case _                                            => false } )
-     JsFutFutConditionalHelp(result,this) }
+  def testT(jt: JsPointer, invert: Boolean = false) = JsFutFutConditionalHelp(testI(jt,invert),this)
+//  { val result = this.jsf.map(js =>
+//    (js,jt) match
+//     { case (JsStack(Some(JsObject(_)),_,_)  , `objekt`) => !invert
+//       case (_                               , `objekt`) => invert
+//       case (JsStack(Some(JsArray(_)),_,_)   ,  `array`) => !invert
+//       case (_                               ,  `array`) => invert
+//       case (JsStack(Some(JsString(_)),_,_)  , `simple`) => !invert
+//       case (JsStack(Some(JsNumber(_)),_,_)  , `simple`) => !invert
+//       case (JsStack(Some(JsBoolean(_)),_,_) , `simple`) => !invert
+//       case (_                               , `simple`) => invert
+//       case _                                            => false } )
+//     JsFutFutConditionalHelp(result,this) }
 
   def testF(jf: JsFuture, invert: Boolean = false) =
   { val result = jf.jsf.map(js =>
