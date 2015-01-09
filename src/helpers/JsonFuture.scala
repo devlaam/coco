@@ -156,6 +156,7 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
 
   def |%  (fn: (String,JsValue) => Boolean): JsFuture   = filterPairs(fn)
   def |%  (fn: (JsStack => Boolean)): JsFuture = filter(fn)
+  def |%! (fn: (JsStack => Boolean)): JsFuture = filter(fn andThen (!_))
 
   def filter(f: JsStack => Boolean): JsFuture = pack(_.filter(f))
 

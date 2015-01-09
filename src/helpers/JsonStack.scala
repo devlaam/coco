@@ -937,6 +937,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
   //!! Omvormen van | naar |% (van het is eigenlijk geen select operatie maar een filter) ??
   def |%  (fn: (String,JsValue) => Boolean): JsStack   = filterPairs(fn)
   def |%  (fn: (JsStack => Boolean)): JsStack = filter(fn)
+  def |%! (fn: (JsStack => Boolean)): JsStack = filter(fn andThen (!_))
 
   /** MINIMALLY TESTED
    *  Filter function solely based on value

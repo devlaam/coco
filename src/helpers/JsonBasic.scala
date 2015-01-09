@@ -546,6 +546,7 @@ object JsonBasic
      */
     def |%  (fn: (String,JsValue) => Boolean): JsValue   = js.filterPairs(fn)
     def |%  (fn: (JsValue => Boolean)): JsValue = js.filter(fn)
+    def |%! (fn: (JsValue => Boolean)): JsValue = js.filter(fn andThen (!_))
 
     /** MINIMALLY TESTED
      *  Filter function solely based on value. Only keep those values in an array
