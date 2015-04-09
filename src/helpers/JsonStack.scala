@@ -491,7 +491,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    */
   def |  (kvs: PairJx): JsStack = get(kvs)
   def get(kvs: PairJx): JsStack =
-  { if (isNil) this
+  { if ( isNil || isNil(kvs) ) JsStack.nil
     else curr.head  match
     { case JsObject(seq)  => if (hasPair(kvs)) this else JsStack.nil
       case JsArray(seq)   =>
@@ -775,8 +775,8 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
   /** MINIMALLY TESTED
    * Construct a map of pairs by inspecting an array of JsValues.
    */
-  def |!*>(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean): Map[String,String] = toMapSSX(filterMap(key,value,filter))
-  def |!*(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean): Map[JsStack,JsStack] = filterMap(key,value,filter)
+  def |!*>(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean = _ => true): Map[String,String] = toMapSSX(filterMap(key,value,filter))
+  def |!*(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean = _ => true): Map[JsStack,JsStack] = filterMap(key,value,filter)
   def filterMap(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean): Map[JsStack,JsStack] =
   { val leeg = Map[JsStack,JsStack]()
     if (isNil) leeg
@@ -1079,7 +1079,9 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
 
   def testJ(js: JsStack, invert: Boolean = false) =
   { val result = js match
-    { case  JsStack(Some(JsBoolean(b)),_,_) => b ^ invert
+    { case JsStack(Some(JsBoolean(b)),_,_)  => b ^ invert
+      case JsStack(Some(JsObject(seq)),_,_) => !seq.isEmpty ^ invert
+      case JsStack(Some(JsArray(seq)),_,_)  => !seq.isEmpty ^ invert
       case _                                => false }
     new JsStackConditionalHelp(result,this) }
 
@@ -1141,8 +1143,10 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
    *  j |+ j1 ?| j2      is read as  j |+ (j1 ?| j2)
    *  j |+ k -> j1?|j2   is read as  j |+ (k->(j1?|j2))
    */
-  def ?| (js: => JsStack) = alternative(js)
-  def alternative (js: => JsStack) = if (isFilled) this else js
+  def ?| (js: => JsStack)  = alternative(js)
+  def ?| (js: => JsFuture) = alternative(js)
+  def alternative (js: => JsStack)  = if (isFilled) this else js
+  def alternative (js: => JsFuture) = if (isFilled) toJvf else js
 
   /** TO TEST
    * Check if an JsOject or JsArray contains a particular field of value:
@@ -1253,7 +1257,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case ((key:String, loc:Int), jvs: JsStack) => setObj((key,jvs),loc)
       case _ => this } }
 
-  //def addObj(kvs: PairJx): JsStack                        = attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
+  def addObj(kvs: PairJx): JsStack                        = attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
 //   def addObjAlt(kvs: PairJx): JsStack =
 //   { if ( isNil || isNil(kvs) ) this
 //     else curr.head  match
@@ -1263,18 +1267,22 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
 //        if (ind>=0) pack(seq,ind)
 //        else attachToArray(JsStack(JsObject(Seq(unpack(kvs)))),-1,true).get(-1)  }
 //      case _              => JsStack.nil } }
-
-   def addObj(kvs: PairJx): JsStack =
-   { if ( isNil || isNil(kvs) ) this
-     else curr.head  match
-     { case JsObject(_)    => attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
-       case JsArray(seq)   =>
-       { val ind = seq.indexWhere( _.hasPair(unpack(kvs) ) )
-         if (ind>=0) pack(seq,ind)
-         else
-         { val ssq = JsObject(Seq(unpack(kvs)))
-           JsStack(Some(ssq),Some(attachToArray(pack(ssq),-1,true)),seq.size) } }
-       case _              => JsStack.nil } }
+// Het is me volkomen onduidelijk waarom de onderstaande functionaliteit nodig is,
+// het optellen van paris bij arrays is erg verwarrend, en alleen mogelijk als
+// je er mini objecten van maakt. De onderstaande implementatie is gevoelig voor
+// de volgorde waarin je elementen en pairs toevoegt en dit lijkt onwenselijk.
+// Terug naar het oude model.
+//   def addObj(kvs: PairJx): JsStack =
+//   { if ( isNil || isNil(kvs) ) this
+//     else curr.head  match
+//     { case JsObject(_)    => attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
+//       case JsArray(seq)   =>
+//       { val ind = seq.indexWhere( _.hasPair(unpack(kvs) ) )
+//         if (ind>=0) pack(seq,ind)
+//         else
+//         { val ssq = JsObject(Seq(unpack(kvs)))
+//           JsStack(Some(ssq),Some(attachToArray(pack(ssq),-1,true)),seq.size) } }
+//       case _              => JsStack.nil } }
 
   def addObj(kvs: PairJx, loc: Int): JsStack              = attachToObject(kvs._2,loc,kvs._1,true,false,false,false)
   def setObj(kvs: PairJx, loc: Int): JsStack              = attachToObject(kvs._2,loc,kvs._1,false,false,false,false)

@@ -160,9 +160,10 @@ class JsonTest extends Specification
       (source | "object" |+!? "vier"->j(4))   ===  JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4  } """)
       (source |+ "string")                    ===  j("FooBar")
       (source |+ List("piet","kees") |+ "test"->j("kees")) ===  JP(""" { "test" : "kees" } """)
-      (source | "words" |+ "een"->j("one") |+ "tien"->j("ten"))  ===  JP(""" { "een": "one", "tien": "ten" } """)
-      (source | "membs" |+ "name"->j("Jan") |+ "age"->j(91))     ===  JP(""" { "name": "Jan",  "age": 91, "id": true} """)
-      (source | "membs" |+ "name"->j("truus") |+ "age"->j(19))   ===  JP(""" { "name": "truus",  "age": 19 } """)
+      // functionaliteit (add pairs to arrays) wordt niet langer ondersteund, te verwarrend.
+      //(source | "words" |+ "een"->j("one") |+ "tien"->j("ten"))  ===  JP(""" { "een": "one", "tien": "ten" } """)
+      //(source | "membs" |+ "name"->j("Jan") |+ "age"->j(91))     ===  JP(""" { "name": "Jan",  "age": 91, "id": true} """)
+      //(source | "membs" |+ "name"->j("truus") |+ "age"->j(19))   ===  JP(""" { "name": "truus",  "age": 19 } """)
     }
 
      "survive reversing" in
@@ -362,10 +363,11 @@ class JsonTest extends Specification
       (sourcex | "object" |+? "vier"->J(4) |> JsUndefined("") )    ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
       (sourcex | "object" |+!? "drie"->J(4) |> JsUndefined("") )   ===  JP(""" { "een": 1, "twee": 2, "drie": 3 } """)
       (sourcex | "object" |+!? "vier"->J(4) |> JsUndefined("") )   ===  JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4  } """)
-      (sourcex | "words" |+ "een"->J("one") |+ "tien"->J("ten") |> JsUndefined("") )  ===  JP(""" { "een": "one", "tien": "ten" } """)
-      (sourcex | "membs" |+ "name"->J("Jan") |+ "age"->J(91)  |> JsUndefined("") )     ===  JP(""" { "name": "Jan",  "age": 91, "id": true} """)
-      (sourcex | "membs" |+ "name"->J("Jan") |+ "age"->J(91)  |> )   === JsStack( resManC)
-      (sourcex | "membs" |+ "name"->J("Truus") |+ "age"->J(18) |> JsUndefined("") )   ===  JP(""" { "name": "Truus",  "age": 18 } """)
+      // functionaliteit (add pairs to arrays) wordt niet langer ondersteund, te verwarrend.
+      //(sourcex | "words" |+ "een"->J("one") |+ "tien"->J("ten") |> JsUndefined("") )  ===  JP(""" { "een": "one", "tien": "ten" } """)
+      //(sourcex | "membs" |+ "name"->J("Jan") |+ "age"->J(91)  |> JsUndefined("") )     ===  JP(""" { "name": "Jan",  "age": 91, "id": true} """)
+      //(sourcex | "membs" |+ "name"->J("Jan") |+ "age"->J(91)  |> )   === JsStack( resManC)
+      //(sourcex | "membs" |+ "name"->J("Truus") |+ "age"->J(18) |> JsUndefined("") )   ===  JP(""" { "name": "Truus",  "age": 18 } """)
 
 
     }

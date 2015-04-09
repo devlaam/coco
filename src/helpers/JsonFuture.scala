@@ -133,8 +133,8 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |^ (keykey: String, valkey: String): JsFuture    = peel(keykey,valkey)
   def peel(keykey: String, valkey: String): JsFuture   = pack(_.peel(keykey,valkey))
 
-  def |!*>(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean): Future[Map[String,String]]        = filterMap(key,value,filter).map(toMapSSX(_))
-  def |!*(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean): Future[Map[JsStack,JsStack]]       = filterMap(key,value,filter)
+  def |!*>(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean = _ => true): Future[Map[String,String]]        = filterMap(key,value,filter).map(toMapSSX(_))
+  def |!*(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean = _ => true): Future[Map[JsStack,JsStack]]       = filterMap(key,value,filter)
   def filterMap(key: JsStack=>JsStack, value: JsStack=>JsStack, filter: JsStack=>Boolean): Future[Map[JsStack,JsStack]] =  jsf.map(_.filterMap(key,value,filter))
 
   def |^*>(keykey: String, valkey: String): Future[Map[String,String]]      = peelMap(keykey,valkey).map(toMapSSX(_))
@@ -205,6 +205,8 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def testJ(js: JsStack, invert: Boolean = false) =
   { val result = js match
     { case  JsStack(Some(JsBoolean(b)),_,_) => b ^ invert
+      case JsStack(Some(JsObject(seq)),_,_) => !seq.isEmpty ^ invert
+      case JsStack(Some(JsArray(seq)),_,_)  => !seq.isEmpty ^ invert
       case _                                => false }
     new JsFutureConditionalHelp(result,this) }
 

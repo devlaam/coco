@@ -129,6 +129,9 @@ object JsonBasic
     def |>(): JsValue = js
     def toJv: JsValue = js
 
+    // We zouden het zo kunnen maken dat per default ook de eerste van een
+    // array gelezen wordt bij |>, scheelt een hoop 'first'en
+
     /** TO TEST
      * Convert JsValue to a chosen type, specifying a default value.
      *   val s: String = jsValue.to[String]
@@ -261,8 +264,8 @@ object JsonBasic
      *
      *   json  | "membs" |!*> ( _|"name",  _|"age", _|"id" |> false )  gives  Map("Jan"->23, "Piet"->43)
      */
-    def |!*>(key: JsValue=>JsValue, value: JsValue=>JsValue, filter: JsValue=>Boolean): Map[String,String] = toMapSS(js.filterMap(key,value,filter))
-    def |!*(key: JsValue=>JsValue, value: JsValue=>JsValue, filter: JsValue=>Boolean): Map[JsValue,JsValue] = js.filterMap(key,value,filter)
+    def |!*>(key: JsValue=>JsValue, value: JsValue=>JsValue, filter: JsValue=>Boolean = _ => true): Map[String,String] = toMapSS(js.filterMap(key,value,filter))
+    def |!*(key: JsValue=>JsValue, value: JsValue=>JsValue, filter: JsValue=>Boolean = _ => true): Map[JsValue,JsValue] = js.filterMap(key,value,filter)
     def filterMap(key: JsValue=>JsValue, value: JsValue=>JsValue, filter: JsValue=>Boolean): Map[JsValue,JsValue] =
     { js match
       { case JsArray(seq) => seq.foldLeft(Map[JsValue,JsValue]())( (mp,js) => if (filter(js)) mp + (key(js)->value(js)) else mp )
@@ -998,7 +1001,9 @@ object JsonBasic
    /** TO TEST
      * Simple conditional replace, note that the inverted version only works for
      * situations where a senseable test can be applied (for example, if the
-     * jsValue is indeed a boolean). If not, the result is always false.
+     * jsValue is indeed a boolean). If not, the result is always false.]
+     * For Jobjects or Jarrays the test passes if these contain some elements,
+     * for Jboolean, the value of the boolean is relevant.
      */
     def |?  (b: Boolean)    = testB(b,false)
     def |?! (b: Boolean)    = testB(b,true)
@@ -1011,8 +1016,10 @@ object JsonBasic
 
     def testJ(jv: JsValue, invert: Boolean = false) =
     { val result = jv match
-      { case JsBoolean(b) => b ^ invert
-        case _            => false }
+      { case JsBoolean(b)  => b ^ invert
+        case JsObject(seq) => !seq.isEmpty ^ invert
+        case JsArray(seq)  => !seq.isEmpty ^ invert
+        case _             => false }
      new JsValueConditionalHelp(result,js) }
 
     def testT(jt: JsPointer, invert: Boolean = false) =  new JsValueConditionalHelp(testI(jt,invert),js)
@@ -1112,9 +1119,11 @@ object JsonBasic
      * key is placed at the end. After return, the object is guaranteed
      * to contain the key exactly once, pointing to the given jsValue.
      *
-     * If used on an array, the first object element of that array that
-     * contains this key,value pair is returned if it exists, otherwise
-     * a new object with this pair is constructed and returned.
+     * Adding a pair to anything other than an object is undefined.
+     * // Waarom was het onderstaande mogelijk??
+     * //If used on an array, the first object element of that array that
+     * //contains this key,value pair is returned if it exists, otherwise
+     * //a new object with this pair is constructed and returned.
      */
     //!! Nieuwe selector voor arrays.
     def |+ (kv: PairJ): JsValue = addObj(kv)
@@ -1125,9 +1134,9 @@ object JsonBasic
         { val keyCnt = seq.count(_._1 == k)
           if (keyCnt==0) JsObject(seq :+ kv)
           else JsObject( keySearch( seq, -1, k, (i,s,_)=>(if (i==0) s:+kv else s) )._2 ) }
-         case JsArray(seq)  =>
-         { seq find ( _.hasPair(kv) ) getOrElse( JsObject(Seq(kv)) ) }
-        case _              => JsUndefined("Key,Value pair added to non object or array" ) } }
+         //case JsArray(seq)  =>
+         //{ seq find ( _.hasPair(kv) ) getOrElse( JsObject(Seq(kv)) ) }
+        case _              => JsUndefined("Key,Value pair added to non object" ) } }
 
     /** MINIMALLY TESTED
      * Add a key,value pair to the object, placed at a specific location.
@@ -1251,6 +1260,43 @@ object JsonBasic
       { case (JsArray(aseq), JsArray(bseq) ) => JsArray(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).distinct)
         case (JsObject(aseq),JsObject(bseq)) => JsObject(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).toMap.toSeq )
         case _ => JsUndefined("Join on incompatible json values") } }
+
+    /**  MINIMALLY TESTED
+     * Merges to JsValues recursively. Possibilities:
+     * JsObject + JsObject     => Objects are glued, content of identical keys are merged again.
+     * JsArray  + JsArray      => arrays are glued, latter at the end
+     * JsArray  + JsSimple     => JsSimple is integrated in JsArray
+     * JsObject + JsArray      => JsObject is integrated in JsArray
+     * JsObject + JsSimple     => latter wins
+     * JsSimple + JsSimple     => latter wins
+     * JsValue  + JsUndefined  => JsValue wins
+     * Objects themselfs should not contain multiple keys, the result is undefined.
+     */
+//    def |&& (jv: JsValue): JsValue = merge(jv)
+//    def merge(jv: JsValue): JsValue =
+//    { (js,jv) match
+//      { case (JsObject(aseq),JsObject(bseq)) =>
+//        { val amap = aseq.toMap
+//          val bmap = bseq.toMap
+//          val akey = amap.keys.toList
+//          val bkey = bmap.keys.toList
+//          val common =  akey.intersect(bkey)
+//          val merged = common.map(a
+//          JsObject(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).toMap.toSeq )
+//
+//        }
+//        case (JsArray(aseq),  JsArray(bseq) ) => JsArray(aseq ++ bseq)
+//        case (JsArray(aseq), _ ) => JsArray(aseq :+ jv)
+//        case (_, JsArray(bseq) ) => JsArray(jv +: aseq)
+//        //case (JsObject(_), _ ) => jv
+//        //case (_, JsObject(_) ) => jv
+//        case (_, _ )           => jv
+//
+//
+//
+//
+//
+//        case _ => JsUndefined("Join on incompatible json values") } }
 
 
     /** TO TEST
