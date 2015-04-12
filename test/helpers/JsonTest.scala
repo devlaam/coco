@@ -66,6 +66,11 @@ object jsConstants
   val resManA = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
   val resManB = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
   val resManC = JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":91,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
+
+  val resManD=JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":[{"een":1,"twee":2,"drie":3}],"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
+  val resManE=JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"key":{"een":1,"twee":2,"drie":3}},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
+  val resManF=JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":[1,2,3],"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
+
 }
 
 
@@ -248,7 +253,11 @@ class JsonTest extends Specification
       (source | "membs" | 0 | "id" |> "?")    ===  "?"
       (source | "membs" | 0 | "id" |> 42)     ===  42
       (source | "membs" | 0 | "id" |> false)  ===  true
-     }
+      (source | "array" |%+ false )           === j(List("1","2","3"))
+      (source | "array" |%+ true )            === j(List(List("1","2","3")))
+      (source | "string" |%+ true )           === j(List("FooBar"))
+      (source | "string" |%+ "key")            === JP(""" {"key":"FooBar"} """)
+      }
 
     "survive type test" in
     { (source  | "array" |?> `array` )     === true
@@ -465,9 +474,21 @@ class JsonTest extends Specification
       (sourcex | "membs" | 0 | "id" |> "?")    ===  "?"
       (sourcex | "membs" | 0 | "id" |> 42)     ===  42
       (sourcex | "membs" | 0 | "id" |> false)  ===  true
+      (sourcex | "array" |%+ false |>>)        === J(List("1","2","3"))
+      (sourcex | "array" |%+ true |>>)         === J(List(List("1","2","3")))
+      (sourcex | "string" |%+ true |>>)         === J(List("FooBar"))
+      (sourcex | "string" |%+ "key" |>>)        === !JP(""" {"key":"FooBar"} """)
+      (sourcex | "object" |%+ false |>)         === !resManD
+      (sourcex | "object" |%+ "key" |>)         === !resManE
      }
 
-    "survive type test" in
+    "survive type cast" in
+    { (sourcex  | "object" |% `array` |> )     === !resManF
+
+
+    }
+
+      "survive type test" in
     { (sourcex  | "array" |?> `array` )     === true
       (sourcex  | "array" |?> `simple` )    === false
       (sourcex  | "object" |?> `objekt` )   === true

@@ -1008,32 +1008,54 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case JsStack(Some(j),prevJn,ind) => strip( f(this).curr,prevJn,List(ind) ) } }
 
 
-  /** TO TEST
-   *  Simple internal cast function. If the cast can be performed it is done,
-   *  result nil otherwise. Cast from one simple type to another.
-   *  Can also be used to promote a simple type to an array, of which it will
-   *  become the first element. For conversions from boolean, values that are
-   *  recognized as true are (case insensitive) : "true","yes","on","in"
-   *  Any other value qualifies as false. Conversion from number to boolean
-   *  follows the C standard, that is 0 qualifies for false, the rest is true
-   */
+   /** Minimally Tested
+     *  inArray takes the element and puts it into an array, of which it becomes the first element, the array is returned
+     *  inObject takes the element and puts it into an object, of which it becomes the first element, the object is returned
+     */
+    def |%+ (force: Boolean): JsStack = inArr(force)
+    def |%+ (key: String): JsStack    = inObj(key)
+
+  def inArr(force: Boolean): JsStack =
+  { this match
+    { case JsStack(Some(JsArray(_)),_,_) if (!force) => this
+      case JsStack(Some(j),prevJn,ind)               => strip( Some(JsArray(Seq(j))),prevJn,List(ind) )
+      case _                                         => JsStack.nil } }
+
+  def inObj(key: String): JsStack =
+  { this match
+    { case JsStack(Some(j),prevJn,ind) => strip( Some(JsObject(Seq((key,j)))),prevJn,List(ind) )
+      case _                           => JsStack.nil } }
+
+    /** TO TEST
+     *  Simple internal cast function. If the cast can be performed it is done,
+     *  result undefined otherwise. case from one simple type to another.
+     *  Can also be used to promote a simple type to an array, of which it will
+     *  become the first element. An array casted to an array is unchanged and an
+     *  object casted to an array consists of an array of all values inside the object.
+     *  For conversions from boolean, values that are
+     *  recognized as true are (case insensitive) : "true","yes","on","in"
+     *  Any other value qualifies as false. Conversion from number to boolean
+     *  follows the C standard, that is 0 qualifies for false, the rest is true
+     */
   def |% (jt: JsPointer): JsStack  = cast(jt)
   def cast(jt: JsPointer): JsStack =
   { val trueVals = List("true","yes","on","in")
     (this,jt) match
-    { case (JsStack(Some(j),prevJn,ind)    ,  `array` )            => strip( Some(JsArray(Seq(j))),prevJn,List(ind) )
-      case (JsStack(Some(JsObject(_)),_,_) ,        _ )            => JsStack.nil
-      case (JsStack(Some(JsArray(_)),_,_)  ,        _ )            => JsStack.nil
-      case (_                              ,  `simple`)            => this
-      case (JsStack(Some(JsString(s)),prevJn,ind)  ,  `string`)    => this
-      case (JsStack(Some(JsNumber(n)),prevJn,ind)  ,  `string`)    => strip( Some(JsString(n.toString)),prevJn,List(ind) )
-      case (JsStack(Some(JsBoolean(b)),prevJn,ind) ,  `string`)    => strip( Some(JsString(b.toString)),prevJn,List(ind) )
-      case (JsStack(Some(JsString(s)),prevJn,ind)  ,  `number`)    => try strip( Some(JsNumber(BigDecimal(s))),prevJn,List(ind) ) catch { case e: Exception => JsStack.nil }
-      case (JsStack(Some(JsNumber(n)),prevJn,ind)  ,  `number`)    => this
-      case (JsStack(Some(JsBoolean(b)),prevJn,ind) ,  `number`)    => strip( Some(JsNumber(BigDecimal(if (b) 1 else 0))),prevJn,List(ind) )
-      case (JsStack(Some(JsString(s)),prevJn,ind)  ,  `boolean`)   => strip( Some(JsBoolean(trueVals.contains(s.toLowerCase))),prevJn,List(ind) )
-      case (JsStack(Some(JsNumber(n)),prevJn,ind)  ,  `boolean`)   => strip( Some(JsBoolean(n!=0)),prevJn,List(ind) )
-      case (JsStack(Some(JsBoolean(b)),prevJn,ind) ,  `boolean`)   => this
+    { case (JsStack(Some(JsObject(seq)),prevJn,ind) ,  `array`  )  => strip( Some(JsArray(seq map(_._2))),prevJn,List(ind) )
+      case (JsStack(Some(JsArray(_)),_,_)           ,  `array`  )  => this
+      case (JsStack(Some(j),prevJn,ind)             ,  `array`  )  => strip( Some(JsArray(Seq(j))),prevJn,List(ind) )
+      case (JsStack(Some(JsObject(_)),_,_)          ,   _       )  => JsStack.nil
+      case (JsStack(Some(JsArray(_)),_,_)           ,   _       )  => JsStack.nil
+      case (_                                       ,  `simple` )  => this
+      case (JsStack(Some(JsString(s)),prevJn,ind)   ,  `string` )  => this
+      case (JsStack(Some(JsNumber(n)),prevJn,ind)   ,  `string` )  => strip( Some(JsString(n.toString)),prevJn,List(ind) )
+      case (JsStack(Some(JsBoolean(b)),prevJn,ind)  ,  `string` )  => strip( Some(JsString(b.toString)),prevJn,List(ind) )
+      case (JsStack(Some(JsString(s)),prevJn,ind)   ,  `number` )  => try strip( Some(JsNumber(BigDecimal(s))),prevJn,List(ind) ) catch { case e: Exception => JsStack.nil }
+      case (JsStack(Some(JsNumber(n)),prevJn,ind)   ,  `number` )  => this
+      case (JsStack(Some(JsBoolean(b)),prevJn,ind)  ,  `number` )  => strip( Some(JsNumber(BigDecimal(if (b) 1 else 0))),prevJn,List(ind) )
+      case (JsStack(Some(JsString(s)),prevJn,ind)   ,  `boolean`)  => strip( Some(JsBoolean(trueVals.contains(s.toLowerCase))),prevJn,List(ind) )
+      case (JsStack(Some(JsNumber(n)),prevJn,ind)   ,  `boolean`)  => strip( Some(JsBoolean(n!=0)),prevJn,List(ind) )
+      case (JsStack(Some(JsBoolean(b)),prevJn,ind)  ,  `boolean`)  => this
       case _                                                       => JsStack.nil } }
 
 
@@ -1257,7 +1279,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case ((key:String, loc:Int), jvs: JsStack) => setObj((key,jvs),loc)
       case _ => this } }
 
-  def addObj(kvs: PairJx): JsStack                        = attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
+//  def addObj(kvs: PairJx): JsStack                        = attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
 //   def addObjAlt(kvs: PairJx): JsStack =
 //   { if ( isNil || isNil(kvs) ) this
 //     else curr.head  match
@@ -1271,18 +1293,24 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
 // het optellen van paris bij arrays is erg verwarrend, en alleen mogelijk als
 // je er mini objecten van maakt. De onderstaande implementatie is gevoelig voor
 // de volgorde waarin je elementen en pairs toevoegt en dit lijkt onwenselijk.
-// Terug naar het oude model.
-//   def addObj(kvs: PairJx): JsStack =
-//   { if ( isNil || isNil(kvs) ) this
-//     else curr.head  match
-//     { case JsObject(_)    => attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
-//       case JsArray(seq)   =>
-//       { val ind = seq.indexWhere( _.hasPair(unpack(kvs) ) )
-//         if (ind>=0) pack(seq,ind)
-//         else
-//         { val ssq = JsObject(Seq(unpack(kvs)))
-//           JsStack(Some(ssq),Some(attachToArray(pack(ssq),-1,true)),seq.size) } }
-//       case _              => JsStack.nil } }
+// De onderstaande implementatie van pairs aan arrays toevoegen heeft een nadeel.
+// de als op een object toevoegd blijf je in het oorspronkelijke object, als je
+// aan een array toevoegt, kom je in het nieuwe object, en werkt |+ als |
+// Dat is verwarrend, en gevaarlijk, omdat het resultaat zo volgorde gevoelig is.
+// Waar wordt dit eigenlijk gebruikt? We hebben het er natuurlijk niet voor niets
+// ingefietst. Laat nu even staan, maar kijk hier nog naar. Zie ook test41 uit test2..
+
+   def addObj(kvs: PairJx): JsStack =
+   { if ( isNil || isNil(kvs) ) this
+     else curr.head  match
+     { case JsObject(_)    => attachToObject(kvs._2,-1,kvs._1,true,true,false,false)
+       case JsArray(seq)   =>
+       { val ind = seq.indexWhere( _.hasPair(unpack(kvs) ) )
+         if (ind>=0) pack(seq,ind)
+         else
+         { val ssq = JsObject(Seq(unpack(kvs)))
+           JsStack(Some(ssq),Some(attachToArray(pack(ssq),-1,true)),seq.size) } }
+       case _              => JsStack.nil } }
 
   def addObj(kvs: PairJx, loc: Int): JsStack              = attachToObject(kvs._2,loc,kvs._1,true,false,false,false)
   def setObj(kvs: PairJx, loc: Int): JsStack              = attachToObject(kvs._2,loc,kvs._1,false,false,false,false)

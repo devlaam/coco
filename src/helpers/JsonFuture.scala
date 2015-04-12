@@ -144,6 +144,12 @@ case class JsFuture(private[helpers] val jsf: Future[JsStack])
   def |% (keep: Boolean): JsFuture     = flatten(keep)
   def flatten(keep: Boolean): JsFuture = pack(_.flatten(keep))
 
+  def |%+ (force: Boolean): JsFuture  = inArr(force)
+  def |%+ (key: String): JsFuture     = inObj(key)
+  def inArr(force: Boolean): JsFuture = pack(_.inArr(force))
+  def inObj(key: String): JsFuture    = pack(_.inObj(key))
+
+
   def |% (jt: JsPointer): JsFuture  = cast(jt)
   def cast(jt: JsPointer): JsFuture = pack(_.cast(jt))
 

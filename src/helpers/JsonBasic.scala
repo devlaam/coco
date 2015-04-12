@@ -940,11 +940,27 @@ object JsonBasic
     def replace(f: JsValue => JsValue): JsValue = f(js)
 
 
+
+    /** Minimally Tested
+     *  inArray takes the element and puts it into an array, of which it becomes the first element, the array is returned
+     *  if force is false, no action takes place if the element is already an array.
+     *  inObject takes the element and puts it into an object, of which it becomes the first element, the object is returned
+     */
+    def |%+ (force: Boolean): JsValue = inArr(force)
+    def |%+ (key: String): JsValue    = inObj(key)
+    def inArr(force: Boolean): JsValue =
+    { js match
+      { case (JsArray(_)) if (!force) => js
+        case _                        => JsArray(Seq(js)) } }
+    def inObj(key: String): JsValue    = JsObject(Seq((key,js)))
+
     /** TO TEST
      *  Simple internal cast function. If the cast can be performed it is done,
      *  result undefined otherwise. case from one simple type to another.
      *  Can also be used to promote a simple type to an array, of which it will
-     *  become the first element. For conversions from boolean, values that are
+     *  become the first element. An array casted to an array is unchanged and an
+     *  object casted to an array consists of an array of all values inside the object.
+     *  For conversions from boolean, values that are
      *  recognized as true are (case insensitive) : "true","yes","on","in"
      *  Any other value qualifies as false. Conversion from number to boolean
      *  follows the C standard, that is 0 qualifies for false, the rest is true
@@ -954,6 +970,8 @@ object JsonBasic
     { val trueVals = List("true","yes","on","in")
       (js,jt) match
       { case (_:JsUndefined,        _ )   => js
+        case (JsObject(seq),  `array` )   => JsArray(seq map (_._2))
+        case (JsArray(_)   ,  `array` )   => js
         case (_            ,  `array` )   => JsArray(Seq(js))
         case (JsObject(_)  ,        _ )   => JsUndefined("Cannot cast an object")
         case (JsArray(_)   ,        _ )   => JsUndefined("Cannot cast an array")
@@ -1124,6 +1142,7 @@ object JsonBasic
      * //If used on an array, the first object element of that array that
      * //contains this key,value pair is returned if it exists, otherwise
      * //a new object with this pair is constructed and returned.
+     * // zie voor een discussie in JsonStack, laat nu even staan.
      */
     //!! Nieuwe selector voor arrays.
     def |+ (kv: PairJ): JsValue = addObj(kv)
@@ -1134,8 +1153,8 @@ object JsonBasic
         { val keyCnt = seq.count(_._1 == k)
           if (keyCnt==0) JsObject(seq :+ kv)
           else JsObject( keySearch( seq, -1, k, (i,s,_)=>(if (i==0) s:+kv else s) )._2 ) }
-         //case JsArray(seq)  =>
-         //{ seq find ( _.hasPair(kv) ) getOrElse( JsObject(Seq(kv)) ) }
+         case JsArray(seq)  =>
+         { seq find ( _.hasPair(kv) ) getOrElse( JsObject(Seq(kv)) ) }
         case _              => JsUndefined("Key,Value pair added to non object" ) } }
 
     /** MINIMALLY TESTED
