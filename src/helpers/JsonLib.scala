@@ -56,6 +56,13 @@ object JsonLib
 
 
   /**
+   * String values to recognized as 'true' or 'false'. Behaviour for strings
+   * outside these values is function dependent.
+   */
+  val trueVals  = List("true", "yes","on", "in","+","1")
+  val falseVals = List("false","no", "off","in","-","0")
+
+  /**
    * Casts to JsValue(s). Needed to add values to the json tree. Use small j to
    * cast to JsValue and capital J to cast to JsValues.
    */

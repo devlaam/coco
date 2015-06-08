@@ -213,7 +213,6 @@ object JsonBasic
       js match
             { case JsObject(seq) => listHelper(seq.map(_._2),succ,fail)(fjs)
               case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
-             // case _ => List[T]()
               case _             => listHelper(Seq(js),succ,fail)(fjs) } }
 
     def ||>[T](dflt: T)(implicit fjs: Reads[T]): List[T] = js.toValList[T](dflt)(fjs)
@@ -223,7 +222,6 @@ object JsonBasic
       js match
       { case JsObject(seq) => listHelper(seq.map(_._2),succ,fail)(fjs)
         case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
-        //case _ => List[T]()
         case _             => listHelper(Seq(js),succ,fail)(fjs) } }
 
     /**
@@ -237,7 +235,6 @@ object JsonBasic
       js match
       { case JsObject(seq) => listHelper(seq.map(_._2),succ,fail)(fjs)
         case JsArray(seq)  => listHelper(seq,succ,fail)(fjs)
-        //case _ => List[T]()
         case _             => listHelper(Seq(js),succ,fail)(fjs) } }
 
     def ||&>(implicit fjs: Reads[String]): List[String] = toKeyValList(fjs)
@@ -967,8 +964,7 @@ object JsonBasic
      */
     def |% (jt: JsPointer): JsValue  = cast(jt)
     def cast(jt: JsPointer): JsValue =
-    { val trueVals = List("true","yes","on","in")
-      (js,jt) match
+    { (js,jt) match
       { case (_:JsUndefined,        _ )   => js
         case (JsObject(seq),  `array` )   => JsArray(seq map (_._2))
         case (JsArray(_)   ,  `array` )   => js
@@ -987,12 +983,122 @@ object JsonBasic
         case (JsBoolean(b) ,  `boolean`)  => js
         case _                            => JsUndefined("Type not recognized") } }
 
+
+    /**
+     *  The operator |> T can be used to extract the value from the json:
+     *
+     *   json = { "bareNumber" : 42,
+     *            "strNumber"  : "42"
+     *            "bareBool"   : true,
+     *            "strBool"    : "True" }
+     *
+     *  So we have
+     *    json | "bareNumber"  |> 0  => 42
+     *  But also:
+     *    json | "strNumber"   |> 0  => 0
+     *
+     *
+     *  Although strictly correct, this may not be what you want, to that
+     *  end, use an implicit cast:
+     *
+     *    json | "bareNumber"  |%> 0  => 42
+     *    json | "strNumber"   |%> 0  => 42
+     *
+     *  The cast operation tries to interpret the value in the json as number,
+     *  so a little care is required since:
+     *
+     *    json | "bareBool"  |%> 0  => 1
+     *    json | "strBool"   |%> 0  => 0
+     *
+     *  Likewise we have
+     *
+     *    json | "bareNumber"  |%> ""  => "42"
+     *    json | "strNumber"   |%> ""  => "42"
+     *    json | "bareBool"    |%> ""  => "true"
+     *    json | "strBool"     |%> ""  => "True"
+     *
+     *  But you case guide your result as follows:
+     *
+     *    json | "bareBool"    |%> "on"   => "on"
+     *    json | "bareBool"    |%> "out"  => "in"
+     *
+     *  Often, these
+     *  are not of the desired type. For example a integer kept as string. Use the |%>
+     *  to cast to a type with a default value
+     *  give for those casts that do not succeed.
+     *  cases i
+     *
+     */
+
+
+//    sealed abstract class castCatch[T]
+//    { def castToHelper(dflt: T): Option[T] }
+//
+//    class castImpl(j: JsValue) extends castCatch
+//    {
+//    implicit def castToHelper(dflt: Boolean): Option[Boolean] =
+//    { j match
+//      {  case JsBoolean(b) => Some(b)
+//         case JsNumber(n)  => Some(n!=0)
+//         case JsString(s)  =>
+//         { val sLow = s.toLowerCase
+//           if       (trueVals.contains(sLow))  Some(true)
+//           else if  (falseVals.contains(sLow)) Some(false)
+//           else                                None }
+//         case _            => None } }
+//
+//    implicit def castToHelper(dflt: String): Option[String] =
+//    { j match
+//      { case JsString(s)  => Some(s)
+//        case JsNumber(n)  => Some(n.toString)
+//        case JsBoolean(b) =>
+//        { val indTrue  = trueVals.indexOf(dflt)
+//          val indFalse = falseVals.indexOf(dflt)
+//          val ind = if (indTrue>=0) indTrue else if (indFalse>=0) indFalse else 0
+//          if (b) Some(trueVals(ind)) else Some(falseVals(ind)) }
+//        case _            => None } }
+//
+//    implicit def castToHelper(dflt: Long): Option[Long] =
+//    { j match
+//      {  case JsNumber(n)  => try Some(n.toLong) catch { case e: NumberFormatException => None }
+//         case JsBoolean(b) => Some(if (b) 1 else 0)
+//         case JsString(s)  => try Some(s.toLong) catch { case e: NumberFormatException => None }
+//         case _            => None } }
+//      }
+
+
+
+//    def |%> (dflt: Boolean): Boolean   = castTo(dflt)
+//    def castTo(dflt: Boolean): Boolean = castCatcher(js).castToHelper(dflt).getOrElse(dflt)
+//
+//    def |%> (dflt: String): String   = castTo(dflt)
+//    def castTo(dflt: String): String = castCatcher(js).castToHelper(dflt).getOrElse(dflt)
+//
+//    def |%> (dflt: Long): Long   = castTo(dflt)
+//    def castTo(dflt: Long): Long = castCatcher(js).castToHelper(dflt).getOrElse(dflt)
+//
+//    def ||%>[T](dflt: T): List[T] = js.toCastValList[T](dflt)
+//    def toCastValList[T](dflt: T): List[T] =
+//    { object cc extends castImpl(js)
+//      js match
+//      { case JsObject(seq) => seq.map(_._2.castTo(dflt))
+//        case JsArray(seq)  => seq.map(_.castTo(dflt))
+//        case _             => List(js.castTo(dflt)) } }
+//
+//    def |!%>[T](excl: T): List[T] = js.toCastValFilteredList[T](excl)
+//    def toCastValFilteredList[T](excl: T): List[T] =
+//    { js match
+//      { case JsObject(seq) => seq.map(j => castToHelper(j,excl)) collect (_.get)
+//        case JsArray(seq)  => seq.map(j => castToHelper(j,excl))
+//        case _             => List(castToHelper(js,excl)) } }
+
+
+
     def |+ (kjj: PairJJ)(implicit d: DummyImplicit) = replace(kjj._1,kjj._2)
     def replace(k: String, f: JsValue => JsValue): JsValue =  addObj((k,f(js.get(k))))
 
-
-   private def testI(jt: JsPointer, invert: Boolean) =
-   { (js,jt) match
+    private def testI(jt: JsPointer, invert: Boolean) =
+    { (js,jt) match
       { case (_:JsUndefined,        _ )  =>   false
         case (JsObject(_)  ,  `objekt`)  => !invert
         case (_            ,  `objekt`)  =>  invert
