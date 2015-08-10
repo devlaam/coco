@@ -17,7 +17,7 @@
  *
  */
 
-package helpers
+package com.devlaam.coco
 
 import scala.util._
 import scala.concurrent._
@@ -46,7 +46,7 @@ import JsonBasic._
 // gewoon in een nil moeten overgaan. Dat is handig als het document ergens anders
 // 'vandaan' komt. Je zou een appart error veld in de JsStack kunnen opnemen.
 
-case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] val prev: Option[JsStack], private[helpers] val ind: Int = 0)
+case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val prev: Option[JsStack], private[coco] val ind: Int = 0)
 { private def test(f: JsStack => Boolean):  PairJx => Boolean     = (x) => f(x._2)
   private def unpack(vs:JsStack): JsValue                         = (vs.curr.head)
   private def unpack(kvs: PairJx): PairJ                          = (kvs._1,kvs._2.curr.head)
@@ -82,7 +82,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
           case Some(JsArray(sa))  => glue(Some(sa(inx(1))),Some(jssNew),inx.tail)
           case _                  => jssNew } } }  }
 
-  private[helpers] def attachToArray(jssNew: JsStack, ind: Int, insert: Boolean): JsStack =
+  private[coco] def attachToArray(jssNew: JsStack, ind: Int, insert: Boolean): JsStack =
   { val pi = if (insert) 0 else 1
     (jssNew,this) match
     { case ( JsStack(None,_,_), _) => this
@@ -91,7 +91,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
         strip(Some(JsArray(sa.patch(iMod,Seq(jsv),pi))),prevJn,List(indOld)) }
       case _ =>  JsStack.nil } }
 
-  private[helpers] def attachToObject(jssNew: JsStack, ind: Int, key: String, insert: Boolean, unique: Boolean, bePresent: Boolean, beAbsent: Boolean): JsStack =
+  private[coco] def attachToObject(jssNew: JsStack, ind: Int, key: String, insert: Boolean, unique: Boolean, bePresent: Boolean, beAbsent: Boolean): JsStack =
   { val pi = if (insert) 0 else 1
     (jssNew,this) match
     { case ( JsStack(None,_,_), _) => this // Note that this implies the the existing key,val is unchanged, this may be desired, but other actions (delete the key for example) may be expected too.
@@ -105,7 +105,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case _ =>  JsStack.nil } }
 
   /* Verwijder of nummer ind of alle waarden gelijk aan jssRemove */
-  private[helpers] def detachFromArray(ind: Int, jssRemove: JsStack, onInd: Boolean): JsStack =
+  private[coco] def detachFromArray(ind: Int, jssRemove: JsStack, onInd: Boolean): JsStack =
   { this match
     { case (JsStack(Some(JsArray(sa)),prevJn,indOld))  =>
       { if (sa.isEmpty) this
@@ -118,14 +118,14 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
       case _ =>  JsStack.nil } }
 
   /* Verwijder of key op index ind, od allemaal. Als  jssRemove gegeven is moet die waarde ook overeenkomen*/
-  private[helpers] def detachFromObject(key: String, jssRemove: JsStack, ind: Int,  all: Boolean): JsStack =
+  private[coco] def detachFromObject(key: String, jssRemove: JsStack, ind: Int,  all: Boolean): JsStack =
   { this match
     { case (JsStack(Some(JsObject(so)),prevJn,indOld))  =>
       { if (so.isEmpty) this
         else { strip(Some(curr.head.delObj(key,jssRemove.curr,all,ind)),prevJn,List(indOld)) } }
       case _ =>  JsStack.nil } }
 
-//  private[helpers] def joinAction(jssNew: JsStack, unique: Boolean): JsStack =
+//  private[coco] def joinAction(jssNew: JsStack, unique: Boolean): JsStack =
 //  { (jssNew,this) match
 //    { case ( JsStack(None,_,_), _) => this
 //      case ( JsStack(Some(JsObject(bseq)),_,_), JsStack(Some(JsObject(aseq)),prevJn,indOld) ) =>
@@ -134,7 +134,7 @@ case class JsStack(private[helpers] val curr: Option[JsValue], private[helpers] 
 //        strip(Some(JsArray(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).distinct)),prevJn,List(indOld))
 //      case _ => JsStack.nil } }
 
-  private[helpers] def mergeAction(jssNew: JsStack, joinIt: Boolean, filterIt: Boolean): JsStack =
+  private[coco] def mergeAction(jssNew: JsStack, joinIt: Boolean, filterIt: Boolean): JsStack =
   { def arrayFilter(aseq: Seq[JsValue],bseq: Seq[JsValue]) =
     { if (joinIt) { if (!filterIt) (aseq ++ bseq) else (aseq ++ bseq).distinct }
       else        { aseq.filterNot(a => bseq.contains(a)) } }

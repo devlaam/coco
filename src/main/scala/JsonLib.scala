@@ -17,7 +17,7 @@
  *
  */
 
-package helpers
+package com.devlaam.coco
 
 
 import scala.language.postfixOps

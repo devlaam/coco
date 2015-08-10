@@ -17,7 +17,7 @@
  *
  */
 
-package helpers
+package com.devlaam.coco
 
 import scala.util._
 import scala.concurrent._
@@ -35,7 +35,7 @@ import ExecutionContext.Implicits.global
   /* This to make all operators available for future json objects
    * to seemlessly define operations. */
 
-case class JsFuture(private[helpers] val jsf: Future[JsStack])
+case class JsFuture(private[coco] val jsf: Future[JsStack])
 {
   private def pack(pjt: JsStack => JsStack ): JsFuture = JsFuture(jsf.map(js => pjt(js)  ) )
   private def pack(jv: JsFuture, pjt: (JsStack,JsStack) => JsStack): JsFuture = JsFuture(jsf.flatMap(js => jv.jsf.map(jt => pjt(js,jt)) ) )

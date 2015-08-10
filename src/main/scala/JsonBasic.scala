@@ -17,7 +17,7 @@
  *
  */
 
-package helpers
+package com.devlaam.coco
 
 
 import scala.language.postfixOps
@@ -29,7 +29,7 @@ object JsonBasic
 { import JsonLib._
   //import JsonStack._
 
-  private[helpers] def traverse[T](seq: Seq[T], from: Int, size: Int, step: Int): Seq[T] =
+  private[coco] def traverse[T](seq: Seq[T], from: Int, size: Int, step: Int): Seq[T] =
   { Iterator.from(0)
             .takeWhile( i=>  if      (size<0)  (i*math.abs(step) < seq.size)
                              else if (size==0) (i*step+from >= 0) && (i*step+from < seq.size)
