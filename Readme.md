@@ -25,8 +25,9 @@ Standard in Play (2.3.x):
 These are the basis of this lib, extended with the case class 
 'JsStack', which use is optional. All operators are implicitly
 defined on the JsValue type (if you want to stay within Play) and 
-on the JsStack type, which is closed under its own operations.
-[Note: Lib has been rewritten, use of JsValues is Deprecated.]
+on the JsStack type, which is closed under its own operations,
+or JsFuture with enables operations on json's without the mapping
+clutter.
 
 ###Example selectors, classic in play:
   jsObject = jsObject + ("key"->Json.toJson("value"))  //=> add a key,value pair to jsObject, type must be correct

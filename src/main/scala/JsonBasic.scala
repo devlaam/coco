@@ -19,7 +19,6 @@
 
 package com.devlaam.coco
 
-
 import scala.language.postfixOps
 import scala.collection.immutable.HashSet
 import play.api.libs.json._
