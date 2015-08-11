@@ -30,8 +30,10 @@ or JsFuture with enables operations on json's without the mapping
 clutter.
 
 ###Example selectors, classic in play:
+```
   jsObject = jsObject + ("key"->Json.toJson("value"))  //=> add a key,value pair to jsObject, type must be correct
   jsValue  = jsArray :+ Json.toJson("value")           //=> add a value to jsArray, type must be correct
+```
 but you have to 'verify' the types each time.
 
 ###In this lib:

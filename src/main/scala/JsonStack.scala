@@ -1358,6 +1358,7 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
 object JsStack
 { def nil = JsStack(None,None,0)
   def apply(jv: JsValue): JsStack = new JsStack(Some(jv),None,0)
+  def parse(json: String) = Try(Json.parse(json)).map(J(_)).getOrElse(nil)
 
   implicit class JsStackOps[T](val ff: (JsStack=>JsStack)) extends AnyVal
   { def * (fn: (JsStack=>JsStack)) = ff compose fn
