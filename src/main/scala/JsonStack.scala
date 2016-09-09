@@ -439,6 +439,7 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
   /** MINIMALLY TESTED
    * Select a field with (the first) key s from an object. If the key does not
    * exists an empty object is created for that key and this is returned.
+   * TODO: je zou natuurlijk ook een array kunnen willen??
    */
   def |+ (s: String): JsStack = getAdd(s)
   def getAdd(s: String): JsStack =
@@ -1251,10 +1252,14 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
 
   def |+ (vs: JsStack): JsStack                       = addArr((-1,vs))
   def |+ (kvs: PairJx): JsStack                       = addObj(kvs)   //!!
+  
+  /* Only replace the pair when the key is already there*/
   def |+? (kv: PairJx): JsStack                       = addObjWhen(kv,true)
+  
+  /* Only add the pair when the key is not there*/
   def |+!? (kv: PairJx): JsStack                      = addObjWhen(kv,false)
 
-
+  /* change the name of a present key */
   def |~ (kk: (String,String)) : JsStack = rekey(kk)
   def rekey(kk: (String,String)): JsStack =
   { val (oldKey,newKey) = kk
