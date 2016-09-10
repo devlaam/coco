@@ -17,7 +17,7 @@
  *
  */
 
-package com.devlaam.coco
+package devlaam.coco
 
 
 import scala.language.postfixOps
@@ -25,7 +25,11 @@ import scala.concurrent._
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import ExecutionContext.Implicits.global
-import play.api.libs.json._
+
+import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
+import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
+import play.api.libs.json.{ Reads, Writes }
+
 
 trait JsconConnect
 {

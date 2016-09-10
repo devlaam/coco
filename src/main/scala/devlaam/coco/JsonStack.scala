@@ -17,16 +17,18 @@
  *
  */
 
-package com.devlaam.coco
+package devlaam.coco
 
 import scala.util._
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.collection.immutable.HashSet
-import play.api.libs.json._
 import ExecutionContext.Implicits.global
 
+import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
+import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
+import play.api.libs.json.{ Reads, Writes }
 
 import JsonLib._
 import JsonBasic._

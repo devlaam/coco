@@ -17,16 +17,17 @@
  *
  */
 
-package com.devlaam.coco
+package devlaam.coco
 
 import scala.language.postfixOps
 import scala.collection.immutable.HashSet
-import play.api.libs.json._
 
+import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
+import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
+import play.api.libs.json.{ Reads, Writes }
 
 object JsonBasic
 { import JsonLib._
-  //import JsonStack._
 
   private[coco] def traverse[T](seq: Seq[T], from: Int, size: Int, step: Int): Seq[T] =
   { Iterator.from(0)

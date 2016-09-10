@@ -17,23 +17,24 @@
  *
  */
 
-package com.devlaam.coco
+package devlaam.coco
 
 import scala.util._
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.collection.immutable.HashSet
-import play.api.libs.json._
 import ExecutionContext.Implicits.global
 
+import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
+import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
+import play.api.libs.json.{ Reads, Writes }
 
-//object JsonFuture
-//{
-  import JsonLib._
-  import JsonBasic._
-  /* This to make all operators available for future json objects
-   * to seemlessly define operations. */
+import JsonLib._
+import JsonBasic._
+
+/* This to make all operators available for future json objects
+ * to define seamless operations. */
 
 case class JsFuture(private[coco] val jsf: Future[JsStack])
 {
