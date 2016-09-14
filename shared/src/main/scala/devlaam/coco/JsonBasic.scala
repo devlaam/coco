@@ -22,12 +22,14 @@ package devlaam.coco
 import scala.language.postfixOps
 import scala.collection.immutable.HashSet
 
-import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
-import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
-import play.api.libs.json.{ Reads, Writes }
+//import scala.json.ast.{ Json, JsValue, JsSuccess, JsUndefined }
+//import scala.json.ast.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
+//import scala.json.ast.{ Reads, Writes }
+
 
 object JsonBasic
 { import JsonLib._
+  import JsonConversions._
 
   private[coco] def traverse[T](seq: Seq[T], from: Int, size: Int, step: Int): Seq[T] =
   { Iterator.from(0)
@@ -146,7 +148,7 @@ object JsonBasic
     /** TO TEST
      * Convert JsValue to a custom type, specifying a mapping.
      */
-    def |>[T](f: JsValue => T): T = js.to[T](f)
+    def |>[T](f: JsValue => T): T = f(js)
     def to[T](f: JsValue => T): T = f(js)
 
 

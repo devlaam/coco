@@ -26,9 +26,9 @@ import scala.language.postfixOps
 import scala.collection.immutable.HashSet
 import ExecutionContext.Implicits.global
 
-import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
-import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
-import play.api.libs.json.{ Reads, Writes }
+//import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
+//import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
+//import play.api.libs.json.{ Reads, Writes }
 
 import JsonLib._
 import JsonBasic._
@@ -37,7 +37,7 @@ import JsonBasic._
  * to define seamless operations. */
 
 case class JsFuture(private[coco] val jsf: Future[JsStack])
-{
+{ 
   private def pack(pjt: JsStack => JsStack ): JsFuture = JsFuture(jsf.map(js => pjt(js)  ) )
   private def pack(jv: JsFuture, pjt: (JsStack,JsStack) => JsStack): JsFuture = JsFuture(jsf.flatMap(js => jv.jsf.map(jt => pjt(js,jt)) ) )
   private def fpack(pjt: JsStack => JsFuture): JsFuture = JsFuture(jsf.flatMap(js => pjt(js).jsf ) )

@@ -26,9 +26,9 @@ import scala.language.postfixOps
 import scala.collection.immutable.HashSet
 import ExecutionContext.Implicits.global
 
-import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
-import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
-import play.api.libs.json.{ Reads, Writes }
+//import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
+//import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
+//import play.api.libs.json.{ Reads, Writes }
 
 import JsonLib._
 import JsonBasic._
@@ -49,7 +49,9 @@ import JsonBasic._
 // 'vandaan' komt. Je zou een appart error veld in de JsStack kunnen opnemen.
 
 case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val prev: Option[JsStack], private[coco] val ind: Int = 0)
-{ private def test(f: JsStack => Boolean):  PairJx => Boolean     = (x) => f(x._2)
+{ import JsonConversions._
+  
+  private def test(f: JsStack => Boolean):  PairJx => Boolean     = (x) => f(x._2)
   private def unpack(vs:JsStack): JsValue                         = (vs.curr.head)
   private def unpack(kvs: PairJx): PairJ                          = (kvs._1,kvs._2.curr.head)
 
@@ -1363,9 +1365,10 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
 }
 
 object JsStack
-{ def nil = JsStack(None,None,0)
+{ import JsonConversions._
+  def nil = JsStack(None,None,0)
   def apply(jv: JsValue): JsStack = new JsStack(Some(jv),None,0)
-  def parse(json: String) = Try(Json.parse(json)).map(J(_)).getOrElse(nil)
+  def parse(json: String) = Try(Json.parse(json)).map(J(_)).getOrElse(nil) 
 
   implicit class JsStackOps[T](val ff: (JsStack=>JsStack)) extends AnyVal
   { def * (fn: (JsStack=>JsStack)) = ff compose fn

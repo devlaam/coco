@@ -1,18 +1,41 @@
-name := "coco"
+scalaVersion in ThisBuild := "2.11.8"
 
-version := "0.5"
+//enablePlugins(ScalaJSPlugin)
 
-scalaVersion := "2.11.8"
+EclipseKeys.useProjectId := true
 
-scalaSource in Compile := baseDirectory.value / "src"
+lazy val root = project.in(file(".")).
+  aggregate(cocoJS, cocoJVM).
+  settings(
+    publish := {},
+    publishLocal := {}
+  )
 
-scalaSource in Test := baseDirectory.value / "src"
 
-libraryDependencies += "com.typesafe.play" %% "play-json" % "2.3.9"  withSources()
+lazy val coco = crossProject.in(file(".")).
+  settings(
+    name := "coco",
+    version := "0.5.3",
+    organization := "devlaam",
+    scalacOptions ++= Seq("-feature","-deprecation","-unchecked"),
+    libraryDependencies += "com.lihaoyi" %%% "utest" % "0.4.3" % "test" withSources(), 
+    testFrameworks += new TestFramework("utest.runner.Framework")
+  ).
+  jvmSettings(
+    // Add JVM-specific settings here
+    libraryDependencies += "com.typesafe.play" %% "play-json" % "2.3.9"  withSources()
+  ).
+  jsSettings(
+    // Add JS-specific settings here
+  )
 
-libraryDependencies += "org.specs2" %% "specs2-core" % "3.6.4" 
+lazy val cocoJVM = coco.jvm
+lazy val cocoJS  = coco.js
 
-organization := "com.github.devlaam"
 
-publishMavenStyle := true
+//scalaSource in Compile := baseDirectory.value / "src" / "main"
+
+//scalaSource in Test := baseDirectory.value / "src" / "test"
+
+//publishMavenStyle := true
 

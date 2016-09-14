@@ -26,27 +26,22 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import ExecutionContext.Implicits.global
 
-import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
-import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
-import play.api.libs.json.{ Reads, Writes }
+//import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
+//import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
+//import play.api.libs.json.{ Reads, Writes }
 
+// Waar was dit voor?
+//trait JsconConnect
+//{ protected def curr: Option[JsValue]
+//  protected def prev: Option[JsStack]
+//  protected def ind: Int
+//  protected def attachToArray(jssNew: JsStack, ind: Int, insert: Boolean): JsStack
+//  protected def attachToObject(jssNew: JsStack, ind: Int, key: String, insert: Boolean, unique: Boolean, bePresent: Boolean, beAbsent: Boolean): JsStack
+//  protected def detachFromArray(ind: Int, jssRemove: JsStack, onInd: Boolean): JsStack }
 
-trait JsconConnect
-{
-  protected def curr: Option[JsValue]
-  protected def prev: Option[JsStack]
-  protected def ind: Int
-  protected def attachToArray(jssNew: JsStack, ind: Int, insert: Boolean): JsStack
-  protected def attachToObject(jssNew: JsStack, ind: Int, key: String, insert: Boolean, unique: Boolean, bePresent: Boolean, beAbsent: Boolean): JsStack
-  protected def detachFromArray(ind: Int, jssRemove: JsStack, onInd: Boolean): JsStack
-
-
-}
 
 object JsonLib
-{
-  import JsonBasic._
-  //import JsonStack._
+{ import JsonBasic._
 
   /**
    * Default objects for general use
@@ -80,7 +75,7 @@ object JsonLib
   /**
    * Auxiliary function to collect the results of all futures.
    */
-  def allFutures[T](fs: Seq[Future[T]]): Future[Seq[T]] = { fs.foldRight(Future(Seq[T]()))((f, flist) => f.flatMap(l => flist.map(ls => l +: ls))) }
+  private[coco] def allFutures[T](fs: Seq[Future[T]]): Future[Seq[T]] = { fs.foldRight(Future(Seq[T]()))((f, flist) => f.flatMap(l => flist.map(ls => l +: ls))) }
 
   /**
    *  Helper function to cast a map of JsValue,JsValue to anything you need.
@@ -126,7 +121,7 @@ object JsonLib
    * There is no proper modulo operator in Scala. Here is a simple
    * one.
    */
-  def modulo(x: Int, n: Int): Int =
+  private[coco] def modulo(x: Int, n: Int): Int =
   { if (n<=0)
     { throw new java.lang.ArithmeticException("modulo zero or negative"); 0 }
     else
@@ -141,7 +136,7 @@ object JsonLib
    * sequences. IndexOf("foo") is (a special case of) indexNext(0,"foo"),
    * get the second "foo" by  indexNext(1,"foo"). Start searching for
    * the third "bar" after index 10 with  indexNext(2,"bar",10)  */
-  implicit class SeqOps[T](val s: Seq[T]) extends AnyVal
+  private[coco] implicit class SeqJsonOps[T](val s: Seq[T]) extends AnyVal
   { def indexOfNext(cnt: Int, elm: T, from: Int = 0): Int =
     { if (cnt<0) -1 else
       { val ind = s.indexOf(elm,from)
@@ -157,7 +152,7 @@ object JsonLib
 
   }
 
-  implicit class StringOps(val s: String) extends AnyVal
+  private[coco] implicit class StringJsonOps(val s: String) extends AnyVal
   { import scala.util.control.Exception._
     def asInt = catching(classOf[NumberFormatException]) opt s.toInt
   }
