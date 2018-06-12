@@ -21,14 +21,8 @@ package devlaam.coco
 
 import scala.util._
 import scala.concurrent._
-import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.collection.immutable.HashSet
 import ExecutionContext.Implicits.global
-
-//import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
-//import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
-//import play.api.libs.json.{ Reads, Writes }
 
 import JsonLib._
 import JsonBasic._
@@ -44,7 +38,6 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
   private def fpack(jv: JsFuture, pjt: (JsStack,JsStack) => JsFuture): JsFuture = JsFuture(jsf.flatMap(js => jv.jsf.flatMap(jt => pjt(js,jt).jsf) ) )
 
   def |< (i: Int): JsFuture  = move(i)
-  //def move(i: Int): JsFuture = pack(js => if (i==0 || js.prev.isEmpty || js.curr.isEmpty) js else js.prev.head.move(i-1))
   def move(i: Int): JsFuture = pack(js => js.move(i))
 
   def |< (p: JsPointer): JsFuture  = move(p)
@@ -58,9 +51,9 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
   def length: Future[Int] = jsf.map(_.length)
 
   @deprecated("This method will be removed", "Coco 0.6.0")
-  def toFString(): Future[String] = simpleString  //jsf.map(_.toString())
+  def toFString(): Future[String] = simpleString 
   @deprecated("This method will be removed", "Coco 0.6.0")
-  def toPretty():  Future[String] = prettyString  //jsf.map(_.toPretty())
+  def toPretty():  Future[String] = prettyString
   
   def |:>  = simpleString
   def |::> = prettyString
@@ -229,18 +222,6 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
     new JsFutureConditionalHelp(result,this) }
 
   def testT(jt: JsPointer, invert: Boolean = false) = JsFutFutConditionalHelp(testI(jt,invert),this)
-//  { val result = this.jsf.map(js =>
-//    (js,jt) match
-//     { case (JsStack(Some(JsObject(_)),_,_)  , `objekt`) => !invert
-//       case (_                               , `objekt`) => invert
-//       case (JsStack(Some(JsArray(_)),_,_)   ,  `array`) => !invert
-//       case (_                               ,  `array`) => invert
-//       case (JsStack(Some(JsString(_)),_,_)  , `simple`) => !invert
-//       case (JsStack(Some(JsNumber(_)),_,_)  , `simple`) => !invert
-//       case (JsStack(Some(JsBoolean(_)),_,_) , `simple`) => !invert
-//       case (_                               , `simple`) => invert
-//       case _                                            => false } )
-//     JsFutFutConditionalHelp(result,this) }
 
   def testF(jf: JsFuture, invert: Boolean = false) =
   { val result = jf.jsf.map(js =>
@@ -275,14 +256,12 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
   @deprecated("Use the toString of simpleString methode.","Cococ 0.6.0")
   def toStr: Future[String]  = jsf.map(_.toStr)
 
-  //def unary_-                = inverse
   def |!- (b: Boolean): JsFuture   = inverse(b)
   def |!- (jsb: JsStack): JsFuture = inverse(jsb)
   def |!- (jfb: JsFuture): JsFuture = inverse(jfb)
 
   def inverse(b: Boolean): JsFuture      = pack(_.inverse(b))
   def inverse(jsb: JsStack): JsFuture    = pack(_.inverse(jsb))
-//  def setLength(jf: JsFuture): JsFuture = pack(jf, (js,jv) => js.setLength(jv))
   def inverse(jsb: JsFuture): JsFuture    = pack(jsb, (js,jv) => js.inverse(jv))
 
   def ||>[T](): Future[List[JsStack]]                          = jsf.map(_.||>())
@@ -338,11 +317,6 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
 
   def |&+[T](lvs: (T,JsFuture))(implicit d: DummyImplicit): JsFuture =  pack(lvs._2, (js,jn) => js.|&+((lvs._1,jn)))
   def |%+[T](lvs: (T,JsFuture))(implicit d: DummyImplicit): JsFuture =  pack(lvs._2, (js,jn) => js.|%+((lvs._1,jn)))
-
-//  def addObj(kvs: PairJx): JsFuture                        = pack(_.attachToObject(kvs._2,-1,kvs._1,true,true,false,false))
-//  def addObj(kvs: PairJx, loc: Int): JsFuture              = pack(_.attachToObject(kvs._2,loc,kvs._1,true,false,false,false))
-//  def setObj(kvs: PairJx, loc: Int): JsFuture              = pack(_.attachToObject(kvs._2,loc,kvs._1,false,false,false,false))
-//  def addObjWhen(kvs: PairJx, present: Boolean): JsFuture  = pack(_.attachToObject(kvs._2,-1,kvs._1,true,true,present,!present))
 
   def addObj(kvs: PairJx): JsFuture                        = pack(_.addObj(kvs))
   def addObj(kvs: PairJx, loc: Int): JsFuture              = pack(_.addObj(kvs,loc))

@@ -77,9 +77,9 @@ object JsonTest extends TestSuite
 {
   /* Set to true to enforce testing on multiple identical keys */
   //TODO: there is an other problem, since a standard map does not guarantee the order of the keys either.
-  val multiple = JsonConversions.preservesDoubleKeys
+  val multiple = Json.preservesDoubleKeys
   //TODO: All tests still require preserving the order. Testing this requires some kind op normalization on EVERY test.
-  val order    = JsonConversions.preservesKeyOrder
+  val order    = Json.preservesKeyOrder
 
   
   import jsConstants._
@@ -205,7 +205,7 @@ object JsonTest extends TestSuite
 
     "basic survive mapping"-
     { * - { (source | "array"  |* { j => `{}` |+ "val"-> j })            ==> JP(""" [{"val":"1"},{"val":"2"},{"val":"3"}] """)                      }
-      * - { (source | "object" |* { js => j(js.toStr+"s") })             ==> JP(""" {"een":"1s","twee":"2s","drie":"3s"} """)                       } 
+      * - { (source | "object" |* { js => j(js.toString+"s") })             ==> JP(""" {"een":"1s","twee":"2s","drie":"3s"} """)                       } 
       * - { (source | "number" |* { js => `{}` |+ "answer"->js })        ==> (if (multiple) JP(""" {"answer":42} """) else JP(""" {"answer":43} """)) }
       * - { ((source | "membs") |!* (_|"name",_|"age",_|"id"|>false))    ==> (Map(j("Jan") -> j(23), j("Piet") -> j(43)))                           }
       * - { ((source | "membs") |!*> (_|"name",_|"age",_|"id"|>false))   ==> (Map("Jan" -> "23", "Piet" -> "43"))                                   }
@@ -413,10 +413,10 @@ object JsonTest extends TestSuite
 
     "stack survive mapping"-
     { * - { ((sourcex | "array"  |* { js => (`!{}` |+ "val"-> js) } )   |>  )      ==> ! valresMap1                                                               }
-      * - { ((sourcex | "object" |* { js => J(js.toStr+"s") })          |>  )      ==> ! valresMap2                                                               }
+      * - { ((sourcex | "object" |* { js => J(js.toString+"s") })          |>  )      ==> ! valresMap2                                                               }
       * - { if (multiple) { ((sourcex | "number" |* { js => (`!{}` |+ "answer"->js) })  |>  )      ==> ! valresMap3  }                                              }
       * - { ((sourcex | "array"  |* { js => (`!{}` |+ "val"-> js) } )   |>> )      ==> ! JP(""" [{"val":"1"},{"val":"2"},{"val":"3"}] """)                        }
-      * - { ((sourcex | "object" |* { js => J(js.toStr+"s") })          |>> )      ==> ! JP(""" {"een":"1s","twee":"2s","drie":"3s"} """)                         }
+      * - { ((sourcex | "object" |* { js => J(js.toString+"s") })          |>> )      ==> ! JP(""" {"een":"1s","twee":"2s","drie":"3s"} """)                         }
       * - { ((sourcex | "number" |* { js => (`!{}` |+ "answer"->js) })  |>> )      ==> (if (multiple) !JP(""" {"answer":42} """) else !JP(""" {"answer":43} """))   }
       * - { (((sourcex | "membs") |!* (_|"name"|>>,_|"age"|>>,_|"id"|>false))  )   ==> (Map(J("Jan") -> J(23), J("Piet") -> J(43)))                               }
       * - { (((sourcex | "membs") |!*> (_|"name"|>>,_|"age"|>>,_|"id"|>false)) )   ==> (Map("Jan" -> "23", "Piet" -> "43"))                                       }

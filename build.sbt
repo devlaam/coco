@@ -16,7 +16,8 @@ val sharedSettings = Seq(
 val jvmSettings = Seq(
     libraryDependencies += "org.spire-math" %% "jawn-parser" % "0.12.1"  withSources() )
 
-val jsSettings = Seq()
+val jsSettings = Seq(
+  scalaJSUseMainModuleInitializer := true )
 
 lazy val coco = crossProject(JSPlatform, JVMPlatform)
     .crossType(CrossType.Full) 

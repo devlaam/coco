@@ -22,10 +22,6 @@ package devlaam.coco
 import scala.language.postfixOps
 import scala.collection.immutable.HashSet
 
-//import scala.json.ast.{ Json, JsValue, JsSuccess, JsUndefined }
-//import scala.json.ast.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
-//import scala.json.ast.{ Reads, Writes }
-
 
 object JsonBasic
 { import JsonLib._
@@ -162,13 +158,6 @@ object JsonBasic
     
     @deprecated("Use the toString of simpleString methode.","Cococ 0.6.0")
     def toStr: String = js.simpleString
-//    { js match
-//      { case JsString(s)    => s
-//        //case JsNumber(n)    => n.toString
-//        //case JsBoolean(b)   => b.toString
-//        //case JsNull         => "null"
-//        case _              => js.simpleString //Json.stringify(js) 
-//        } }
 
     def |:>  = js.simpleString
     def |::> = js.prettyString

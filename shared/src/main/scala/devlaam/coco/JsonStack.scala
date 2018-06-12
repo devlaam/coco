@@ -21,14 +21,9 @@ package devlaam.coco
 
 import scala.util._
 import scala.concurrent._
-import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.collection.immutable.HashSet
 import ExecutionContext.Implicits.global
-
-//import play.api.libs.json.{ Json, JsValue, JsSuccess, JsUndefined }
-//import play.api.libs.json.{ JsNull, JsBoolean, JsArray, JsObject, JsString, JsNumber }
-//import play.api.libs.json.{ Reads, Writes }
 
 import JsonLib._
 import JsonBasic._
@@ -128,15 +123,6 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
       { if (so.isEmpty) this
         else { strip(Some(curr.head.delObj(key,jssRemove.curr,all,ind)),prevJn,List(indOld)) } }
       case _ =>  JsStack.nil } }
-
-//  private[coco] def joinAction(jssNew: JsStack, unique: Boolean): JsStack =
-//  { (jssNew,this) match
-//    { case ( JsStack(None,_,_), _) => this
-//      case ( JsStack(Some(JsObject(bseq)),_,_), JsStack(Some(JsObject(aseq)),prevJn,indOld) ) =>
-//        strip(Some(JsObject(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).toMap.toSeq)),prevJn,List(indOld))
-//      case ( JsStack(Some(JsArray(bseq)),_,_), JsStack(Some(JsArray(aseq)),prevJn,indOld) ) =>
-//        strip(Some(JsArray(if (!unique) (aseq ++ bseq) else (aseq ++ bseq).distinct)),prevJn,List(indOld))
-//      case _ => JsStack.nil } }
 
   private[coco] def mergeAction(jssNew: JsStack, joinIt: Boolean, filterIt: Boolean): JsStack =
   { def arrayFilter(aseq: Seq[JsValue],bseq: Seq[JsValue]) =
@@ -251,10 +237,10 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
         case None      => d } }
     if (curr == None) 0 else depth(this,1) }
 
-  /** MINIMALLY TESTED
-   * Two possibilities to print the value
+  /** 
+   * Print a straight forward value of this json.
    */
-  //override def toString(): String = if (isNil) "nil" else Json.stringify(curr.head)
+  override def toString(): String = simpleString
    
   @deprecated("This method will be removed", "Coco 0.6.0")
   def toPretty()                  = prettyString
@@ -639,33 +625,6 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
    *
    */
 
-
-// We moeten ons nog wat beter in de reflectie verdiepen, want ik krijg
-// dit niet aan de praat.
-//  import scala.reflect._
-//  import scala.reflect.runtime.universe._
-//  def |*& [T: TypeTag](f: T => T): JsStack =
-//  { typeOf[T] match
-//    { case t if t =:= typeOf[JsStack]     => map(f)
-//      case t if t =:= typeOf[String]      => mapStr(f)
-//      case t if t =:= typeOf[BigDecimal]  => mapNum(f)
-//      case _ => this   } }
-
-//  def |*& [T: TypeTag](f: T => T): JsStack =
-//  { f match
-//    { case fj: (JsStack => JsStack)       => map(fj)
-//      case fs: (String => String)         => mapStr(fs)
-//      case fi: (BigDecimal => BigDecimal) => mapNum(fi)
-//      case _ => this   } }
-//
-
-//  def |*& [T: TypeTag](f: List[T]): T =
-//  { f match
-//    { case fj: List[String]     => fj.head + "x"
-//      case fs: List[Int]        => fs.head * 2
-//      case _ => null    } }
-
-
   def |* (f: JsStack => JsStack): JsStack = map(f)
   def map(f: JsStack => JsStack): JsStack =
   { if (isNil) this
@@ -952,7 +911,6 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
    *   json | "membs"  |%  { js => ((js|"age")|>0)>30 } gives  [{"name":"Piet","age":43, "id": true}]
    *   json | "number" |%  { js => js.to[Int](0)==42 }  gives  true
    */
-  //!! Omvormen van | naar |% (van het is eigenlijk geen select operatie maar een filter) ??
   def |%  (fn: (String,JsValue) => Boolean): JsStack   = filterPairs(fn)
   def |%  (fn: (JsStack => Boolean)): JsStack = filter(fn)
   def |%! (fn: (JsStack => Boolean)): JsStack = filter(fn andThen (!_))
@@ -1127,23 +1085,6 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
     new JsStackConditionalHelp(result,this) }
 
   def testT(jt: JsPointer, invert: Boolean = false) = new JsStackConditionalHelp(testI(jt,invert),this)
-//  { val result = (this,jt) match
-//     { case (JsStack(Some(JsObject(_)),_,_)  ,  `objekt`)  => !invert
-//       case (_                               ,  `objekt`)  =>  invert
-//       case (JsStack(Some(JsArray(_)),_,_)   ,   `array`)  => !invert
-//       case (_                               ,   `array`)  =>  invert
-//       case (JsStack(Some(JsString(_)),_,_)  ,  `simple`)  => !invert
-//       case (JsStack(Some(JsNumber(_)),_,_)  ,  `simple`)  => !invert
-//       case (JsStack(Some(JsBoolean(_)),_,_) ,  `simple`)  => !invert
-//       case (_                               ,  `simple`)  =>  invert
-//       case (JsStack(Some(JsString(_)),_,_)  ,  `string`)  => !invert
-//       case (_                               ,  `string`)  =>  invert
-//       case (JsStack(Some(JsNumber(_)),_,_)  ,  `number`)  => !invert
-//       case (_                               ,  `number`)  =>  invert
-//       case (JsStack(Some(JsBoolean(_)),_,_) , `boolean`)  => !invert
-//       case (_                               , `boolean`)  =>  invert
-//       case _                                              =>   false }
-//    new JsStackConditionalHelp(result,this) }
 
 
   /** TO TEST
@@ -1220,7 +1161,7 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
    * as stringify.
    * This has been solved, json atoms (which are not valid json) are now without ""
    */
-   @deprecated("Use the toString of simpleString methode.","Cococ 0.6.0")
+   @deprecated("Use the toString or simpleString methode.","Cococ 0.6.0")
   def toStr: String                     = inf(j => j.toStr,"")
 
   /** MINIMALLY TESTED
@@ -1273,10 +1214,10 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
   def |+ (vs: JsStack): JsStack                       = addArr((-1,vs))
   def |+ (kvs: PairJx): JsStack                       = addObj(kvs)   //!!
   
-  /* Only replace the pair when the key is already there*/
+  /** Only replace the pair when the key is already there */
   def |+? (kv: PairJx): JsStack                       = addObjWhen(kv,true)
   
-  /* Only add the pair when the key is not there*/
+  /** Only add the pair when the key is not there */
   def |+!? (kv: PairJx): JsStack                      = addObjWhen(kv,false)
 
   /* change the name of a present key */
