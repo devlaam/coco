@@ -1,41 +1,29 @@
-scalaVersion in ThisBuild := "2.11.8"
-
-//enablePlugins(ScalaJSPlugin)
-
 EclipseKeys.useProjectId := true
 
-lazy val root = project.in(file(".")).
-  aggregate(cocoJS, cocoJVM).
-  settings(
-    publish := {},
-    publishLocal := {}
-  )
+import sbtcrossproject.CrossPlugin.autoImport.{crossProject, CrossType}
 
+val sharedSettings = Seq(
+  scalaVersion        :=   "2.12.6",
+  name                :=   "coco",
+  version             :=   "0.6.0",
+  organization        :=   "devlaam",
+  scalacOptions       ++=   Seq("-feature","-deprecation","-unchecked"),
+  publish             :=    {},
+  publishLocal        :=    {},
+  libraryDependencies +=   "com.lihaoyi" %%% "utest" % "0.4.7" % "test" withSources(), 
+  testFrameworks      +=    new TestFramework("utest.runner.Framework") )
+  
+val jvmSettings = Seq(
+    libraryDependencies += "org.spire-math" %% "jawn-parser" % "0.12.1"  withSources() )
 
-lazy val coco = crossProject.in(file(".")).
-  settings(
-    name := "coco",
-    version := "0.5.3",
-    organization := "devlaam",
-    scalacOptions ++= Seq("-feature","-deprecation","-unchecked"),
-    libraryDependencies += "com.lihaoyi" %%% "utest" % "0.4.3" % "test" withSources(), 
-    testFrameworks += new TestFramework("utest.runner.Framework")
-  ).
-  jvmSettings(
-    // Add JVM-specific settings here
-    libraryDependencies += "com.typesafe.play" %% "play-json" % "2.3.9"  withSources()
-  ).
-  jsSettings(
-    // Add JS-specific settings here
-  )
+val jsSettings = Seq()
+
+lazy val coco = crossProject(JSPlatform, JVMPlatform)
+    .crossType(CrossType.Full) 
+    .in(file("."))
+    .settings(sharedSettings)
+    .jvmSettings(jvmSettings)
+    .jsSettings(jsSettings)
 
 lazy val cocoJVM = coco.jvm
 lazy val cocoJS  = coco.js
-
-
-//scalaSource in Compile := baseDirectory.value / "src" / "main"
-
-//scalaSource in Test := baseDirectory.value / "src" / "test"
-
-//publishMavenStyle := true
-

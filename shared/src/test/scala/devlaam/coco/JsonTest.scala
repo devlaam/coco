@@ -1,13 +1,5 @@
 package devlaam.coco
 
-//import org.specs2.mutable._
-//import org.specs2.runner._
-
-
-//import play.api.test._
-//import play.api.test.Helpers._
-//import play.api.libs.json._
-
 import scala.language.postfixOps
 
 import utest._
@@ -15,7 +7,6 @@ import utest._
 import JsonConversions._
 import JsonLib._ 
 import JsonBasic._
-//import JsonStack._
 
 
 object jsConstants
@@ -85,7 +76,11 @@ object jsConstants
 object JsonTest extends TestSuite
 {
   /* Set to true to enforce testing on multiple identical keys */
-  val strict = !JsonConversions.objectBaseIsMap
+  //TODO: there is an other problem, since a standard map does not guarantee the order of the keys either.
+  val multiple = JsonConversions.preservesDoubleKeys
+  //TODO: All tests still require preserving the order. Testing this requires some kind op normalization on EVERY test.
+  val order    = JsonConversions.preservesKeyOrder
+
   
   import jsConstants._
 
@@ -95,13 +90,13 @@ object JsonTest extends TestSuite
   val tests = this {
 
     "basic survive object-key selections"-
-    { * - { (source | "number")  ==>  (if (strict) j(42) else j(43))                                                                }
+    { * - { (source | "number")  ==>  (if (multiple) j(42) else j(43))                                                                }
       * - { (source | "string")  ==> j("FooBar")                                                                                    }
       * - { (source | "absent").toString  ==> (JsUndefined("Key absent").toString)                                                  }
       * - { (source | "array" | "number").toString  ==> (JsUndefined("Key select on non object or string on non array.").toString)  }
-      * - { if (strict) { (source |& ("number",0) )  ==> j(42) }                                                                    }
-      * - { if (strict) { (source |& ("number",1) )  ==> j(43) }                                                                    }
-      * - { if (strict) { (source |& ("number",2) )  ==> j(42) }                                                                    }
+      * - { if (multiple) { (source |& ("number",0) )  ==> j(42) }                                                                    }
+      * - { if (multiple) { (source |& ("number",1) )  ==> j(43) }                                                                    }
+      * - { if (multiple) { (source |& ("number",2) )  ==> j(42) }                                                                    }
       * - { (source | List("object","een") )  ==> j(1)                                                                              }
       * - { (source | List("membs",1,"age") )  ==> j(43)                                                                            }
       * - { (source | List("membs","1","age") )  ==> j(43)                                                                          }
@@ -124,7 +119,7 @@ object JsonTest extends TestSuite
       * - { (source | "emparr" | filled) .toString  ==> (JsUndefined("Match not found").toString)                                   }
       * - { (source | "object" | 1)        ==> j(2)   /*JP(""" { "twee": 2 } """) */                                                }
       * - { (source | "object" | -1)       ==> j(3)    /*JP(""" { "drie": 3 } """) */                                               }
-      * - { (source | "number" | first)    ==> (if (strict) j(42) else j(43))                                                       }
+      * - { (source | "number" | first)    ==> (if (multiple) j(42) else j(43))                                                       }
       * - { (source | "emparr" | 0) .toString  ==> (JsUndefined("Index on empty array").toString)                                   }
       * - { (source | "membs"  | "age"->j(43))   ==> JP(""" { "name": "Piet", "age": 43, "id": true} """)                           }
       * - { (source | "membs"  | "name"->j("truus")).toString   ==> JsUndefined("Pair not present").toString                        }
@@ -135,16 +130,16 @@ object JsonTest extends TestSuite
     { * - { (source | "object" |+ "vier"->j(4))   ==> JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4 } """)                    }
       * - { (source | "object" |+ "drie"->j(4))   ==> JP(""" { "een": 1, "twee": 2, "drie": 4 } """)                               }
       * - { (source | "object" |+ "een"->j(4))    ==> JP(""" { "een": 4, "twee": 2, "drie": 3 } """)                               }
-      * - { if (strict) { (source | "object" |&+ "drie"->j(4))  ==> JP(""" { "een": 1, "twee": 2, "drie": 3, "drie": 4 }  """) }   }
-      * - { if (strict) { (source | "object" |&+ ("een",0)->j(4))   ==> JP(""" { "een": 4, "een": 1, "twee": 2, "drie": 3 } """) } }
-      * - { if (strict) { (source | "object" |&+ ("een",1)->j(4))   ==> JP(""" { "een": 1, "twee": 2, "drie": 3, "een": 4 } """) } }
-      * - { if (strict) { (source | "object" |%+ ("een",0)->j(4))   ==> JP(""" { "een": 4, "twee": 2, "drie": 3 } """)  }          }
+      * - { if (multiple) { (source | "object" |&+ "drie"->j(4))  ==> JP(""" { "een": 1, "twee": 2, "drie": 3, "drie": 4 }  """) }   }
+      * - { if (multiple) { (source | "object" |&+ ("een",0)->j(4))   ==> JP(""" { "een": 4, "een": 1, "twee": 2, "drie": 3 } """) } }
+      * - { if (multiple) { (source | "object" |&+ ("een",1)->j(4))   ==> JP(""" { "een": 1, "twee": 2, "drie": 3, "een": 4 } """) } }
+      * - { if (multiple) { (source | "object" |%+ ("een",0)->j(4))   ==> JP(""" { "een": 4, "twee": 2, "drie": 3 } """)  }          }
       * - { (source | "object" |%+ ("een",1)->j(4))   ==> JP(""" { "een": 4, "twee": 2, "drie": 3 } """)                           }
-      * - { if (strict) { (source |- "number")          ==> (resMulti0) }                                                          }
-      * - { if (strict) { (source |- "number"->j(43))   ==> (resMulti1) }                                                          }
-      * - { if (strict) { (source |- "number"->j(42))   ==> (resMulti2) }                                                          }
-      * - { if (strict) { (source |- ("number",1) )     ==> (resMulti1) }                                                          }
-      * - { if (strict) { (source |- ("number",0) )     ==> (resMulti2) }                                                          }
+      * - { if (multiple) { (source |- "number")          ==> (resMulti0) }                                                          }
+      * - { if (multiple) { (source |- "number"->j(43))   ==> (resMulti1) }                                                          }
+      * - { if (multiple) { (source |- "number"->j(42))   ==> (resMulti2) }                                                          }
+      * - { if (multiple) { (source |- ("number",1) )     ==> (resMulti1) }                                                          }
+      * - { if (multiple) { (source |- ("number",0) )     ==> (resMulti2) }                                                          }
       * - { (source |~ "object"->"subject" | "subject")  ==> JP(""" { "een": 1, "twee": 2, "drie": 3 } """)                        }
       * - { (source |~ "array"->"subject"  | "subject")  ==> JP(""" ["1","2","3"] """)                                             }
     }
@@ -183,7 +178,7 @@ object JsonTest extends TestSuite
     }
 
      "basic survive reversing"-
-    { * - { (source | "number" |!- true)    ==> (if (strict) j(-42) else j(-43))               }
+    { * - { (source | "number" |!- true)    ==> (if (multiple) j(-42) else j(-43))               }
       * - { (source | "array"  |!- true)    ==> JP(""" ["3","2","1"] """)                      }
       * - { (source | "object" |!- j(true)) ==> JP(""" {"drie": 3, "twee": 2, "een": 1} """)   }
       * - { (source | "membs" | first | "id"  |!- j(true)) ==> j(false)                        }
@@ -191,7 +186,7 @@ object JsonTest extends TestSuite
 
     "basic survive merges"-
     { * - { ((source | "object") |++ (source | "object") )   ==> JP(""" {"een":1,"twee":2,"drie":3} """)                                            }
-      * - { if (strict) { ((source | "object") |&++ (source | "object") )  ==> JP(""" {"een":1,"twee":2,"drie":3, "een":1,"twee":2,"drie":3} """) } }
+      * - { if (multiple) { ((source | "object") |&++ (source | "object") )  ==> JP(""" {"een":1,"twee":2,"drie":3, "een":1,"twee":2,"drie":3} """) } }
       * - { ((source | "array") |++ (source | "array") )     ==> JP(""" ["1","2","3"] """)                                                          }
       * - { ((source | "array") |&++ (source | "array") )    ==> JP(""" ["1","2","3","1","2","3"] """)                                              }
       * - { ((source | "object") |++ (JP(""" { "een": 1, "twee": 2, "vier": 4 } """)) )   ==> JP(""" {"een":1,"twee":2,"drie":3,"vier":4} """)      }
@@ -211,14 +206,14 @@ object JsonTest extends TestSuite
     "basic survive mapping"-
     { * - { (source | "array"  |* { j => `{}` |+ "val"-> j })            ==> JP(""" [{"val":"1"},{"val":"2"},{"val":"3"}] """)                      }
       * - { (source | "object" |* { js => j(js.toStr+"s") })             ==> JP(""" {"een":"1s","twee":"2s","drie":"3s"} """)                       } 
-      * - { (source | "number" |* { js => `{}` |+ "answer"->js })        ==> (if (strict) JP(""" {"answer":42} """) else JP(""" {"answer":43} """)) }
+      * - { (source | "number" |* { js => `{}` |+ "answer"->js })        ==> (if (multiple) JP(""" {"answer":42} """) else JP(""" {"answer":43} """)) }
       * - { ((source | "membs") |!* (_|"name",_|"age",_|"id"|>false))    ==> (Map(j("Jan") -> j(23), j("Piet") -> j(43)))                           }
       * - { ((source | "membs") |!*> (_|"name",_|"age",_|"id"|>false))   ==> (Map("Jan" -> "23", "Piet" -> "43"))                                   }
     }
 
     "basic survive filters"-
     { * - { (source | "object" |%  { js => js.to[Int](0)>=2})     ==> JP(""" {"twee":2,"drie":3} """)                                                                      }
-      * - { (source | "number" |%  { js => js.to[Int](0)==(if(strict) 42 else 43) })  ==> (JsBoolean(true))                                                                }
+      * - { (source | "number" |%  { js => js.to[Int](0)==(if(multiple) 42 else 43) })  ==> (JsBoolean(true))                                                                }
       * - { (source | "membs"  |%  { js => ((js|"age")|>0)>30 }) ==> JP(""" [{"name":"Piet","age":43, "id":true}] """)                                                     }
       * - { (source |%  { (k,js) => (js.isEmpty) })              ==> JP(""" {"empobj" : {},"emparr" : [] } """)                                                            }
       * - { (source |%  { (k,js) => (k=="number") })             ==> JP(""" {"number" : 42,"number" : 43} """)                                                             }
@@ -234,7 +229,7 @@ object JsonTest extends TestSuite
     "basic survive counting"-
     { * - { (source |#> "absent") ==> 0  }
       * - { (source |#> "string") ==> 1  }
-      * - { (source |#> "number") ==> (if(strict) 2 else 1)  }
+      * - { (source |#> "number") ==> (if(multiple) 2 else 1)  }
     }
 
     "basic survive listing"-
@@ -245,8 +240,8 @@ object JsonTest extends TestSuite
       }
 
     "basic survive conversion"-
-    { * - { if (strict)  { (source  |&> )  ==> ( List("number", "string", "empobj", "emparr", "object", "array", "numbs", "words", "membs", "number") ) } }
-      * - { if (!strict) { (source  |&> )  ==> ( List("number", "string", "empobj", "emparr", "object", "array", "numbs", "words", "membs") )           } }      
+    { * - { if (multiple)  { (source  |&> )  ==> ( List("number", "string", "empobj", "emparr", "object", "array", "numbs", "words", "membs", "number") ) } }
+      * - { if (!multiple) { (source  |&> )  ==> ( List("number", "string", "empobj", "emparr", "object", "array", "numbs", "words", "membs") )           } }      
       * - { (source | "object" | "een"  |??> (0,2,4) )      ==> (true,1)                                                                                  }
       * - { (source | "object" | "twee" |??> (0,2,4) )      ==> (true,2)                                                                                  }
       * - { (source | "object" | "drie" |??> (0,2,4) )      ==> (false,4)                                                                                 }
@@ -295,13 +290,13 @@ object JsonTest extends TestSuite
     }
 
     "stack survive object-key selections"-
-    { * - { (sourcex | "number" |>> )  ==>  (if (strict) J(42) else J(43))                                            }
+    { * - { (sourcex | "number" |>> )  ==>  (if (multiple) J(42) else J(43))                                            }
       * - { (sourcex | "string" |>> )  ==> J("FooBar")                                                                }
       * - { (sourcex | "absent" |>> )  ==> JsStack.nil                                                                }
       * - { (sourcex | "array" | "number" |>> )         ==> JsStack.nil                                               }
-      * - { if (strict) { (sourcex |& ("number",0) |>>) ==> J(42) }                                                   }
-      * - { if (strict) { (sourcex |& ("number",1) |>>) ==> J(43) }                                                   }
-      * - { if (strict) { (sourcex |& ("number",2) |>>) ==> J(42) }                                                   }
+      * - { if (multiple) { (sourcex |& ("number",0) |>>) ==> J(42) }                                                   }
+      * - { if (multiple) { (sourcex |& ("number",1) |>>) ==> J(43) }                                                   }
+      * - { if (multiple) { (sourcex |& ("number",2) |>>) ==> J(42) }                                                   }
       * - { (sourcex | List("object","een") |>> )       ==> J(1)                                                      }
       * - { (sourcex | List("membs",1,"age") |>> )      ==> J(43)                                                     }
       * - { (sourcex | List("membs","1","age") |>> )    ==> J(43)                                                     }
@@ -324,7 +319,7 @@ object JsonTest extends TestSuite
       * - { (sourcex | "emparr" | filled)       ==> JsStack.nil                                                                   }
       * - { (sourcex | "object" | 1 |>> )       ==>  J(2)                                                                         }
       * - { (sourcex | "object" | -1 |>> )      ==> J(3)                                                                          }
-      * - { (sourcex | "number" | first |>> )   ==> (if (strict) J(42) else J(43))                                                }
+      * - { (sourcex | "number" | first |>> )   ==> (if (multiple) J(42) else J(43))                                                }
       * - { (sourcex | "emparr" | 0 |>> )   ==> JsStack.nil                                                                       }
       * - { (sourcex | "membs"  | "age"->J(43) |>> )   ==> JsStack(  JP(""" { "name": "Piet", "age": 43, "id": true} """) )       }
       * - { (sourcex | "membs"  | "name"->J("truus"))   ==> JsStack.nil                                                           }
@@ -336,16 +331,16 @@ object JsonTest extends TestSuite
     { * - { (sourcex | "object" |+ "vier"->J(4) |>> )      ==> JsStack( JP(""" { "een": 1, "twee": 2, "drie": 3, "vier": 4 } """))                     }                                        
       * - { (sourcex | "object" |+ "drie"->J(4) |>> )      ==> JsStack( JP(""" { "een": 1, "twee": 2, "drie": 4 } """))                                }                                        
       * - { (sourcex | "object" |+ "een"->J(4)  |>> )      ==> JsStack( JP(""" { "een": 4, "twee": 2, "drie": 3 } """))                                }                                        
-      * - { if (strict) { (sourcex | "object" |&+ "drie"->J(4) |>> )      ==> JsStack( JP(""" { "een": 1, "twee": 2, "drie": 3, "drie": 4 }  """) ) }  }
-      * - { if (strict) { (sourcex | "object" |&+ ("een",0)->J(4) |>> )   ==> JsStack( JP(""" { "een": 4, "een": 1, "twee": 2, "drie": 3 } """) ) }    }
-      * - { if (strict) { (sourcex | "object" |&+ ("een",1)->J(4) |>> )   ==> JsStack( JP(""" { "een": 1, "twee": 2, "drie": 3, "een": 4 } """) ) }    }
-      * - { if (strict) { (sourcex | "object" |%+ ("een",0)->J(4) |>> )   ==> JsStack( JP(""" { "een": 4, "twee": 2, "drie": 3 } """))   }             }
-      * - { if (strict) { (sourcex | "object" |%+ ("een",1)->J(4) |>> )   ==> JsStack( JP(""" { "een": 4, "twee": 2, "drie": 3 } """))   }             }
+      * - { if (multiple) { (sourcex | "object" |&+ "drie"->J(4) |>> )      ==> JsStack( JP(""" { "een": 1, "twee": 2, "drie": 3, "drie": 4 }  """) ) }  }
+      * - { if (multiple) { (sourcex | "object" |&+ ("een",0)->J(4) |>> )   ==> JsStack( JP(""" { "een": 4, "een": 1, "twee": 2, "drie": 3 } """) ) }    }
+      * - { if (multiple) { (sourcex | "object" |&+ ("een",1)->J(4) |>> )   ==> JsStack( JP(""" { "een": 1, "twee": 2, "drie": 3, "een": 4 } """) ) }    }
+      * - { if (multiple) { (sourcex | "object" |%+ ("een",0)->J(4) |>> )   ==> JsStack( JP(""" { "een": 4, "twee": 2, "drie": 3 } """))   }             }
+      * - { if (multiple) { (sourcex | "object" |%+ ("een",1)->J(4) |>> )   ==> JsStack( JP(""" { "een": 4, "twee": 2, "drie": 3 } """))   }             }
       * - { (sourcex |- "number")           ==> JsStack( resMulti0)                                                                                    }                                       
-      * - { if (strict) { (sourcex |- "number"->J(43))    ==> JsStack( resMulti1)  }                                                                   }                                        
-      * - { if (strict) { (sourcex |- "number"->J(42))    ==> JsStack( resMulti2)  }                                                                   }                                        
-      * - { if (strict) { (sourcex |- ("number",1) )      ==> JsStack( resMulti1)  }                                                                   }                                        
-      * - { if (strict) { (sourcex |- ("number",0) )      ==> JsStack( resMulti2)  }                                                                   }                                        
+      * - { if (multiple) { (sourcex |- "number"->J(43))    ==> JsStack( resMulti1)  }                                                                   }                                        
+      * - { if (multiple) { (sourcex |- "number"->J(42))    ==> JsStack( resMulti2)  }                                                                   }                                        
+      * - { if (multiple) { (sourcex |- ("number",1) )      ==> JsStack( resMulti1)  }                                                                   }                                        
+      * - { if (multiple) { (sourcex |- ("number",0) )      ==> JsStack( resMulti2)  }                                                                   }                                        
       * - { (sourcex |~ "object"->"subject" | "subject" |>>)  ==> JsStack(JP(""" { "een": 1, "twee": 2, "drie": 3 } """))                              }                                        
       * - { (sourcex |~ "array"->"subject"  | "subject" |>>)  ==> JsStack(JP(""" ["1","2","3"] """))                                                   }                                        
       * - { (`!{}` |+ List("class","piet") |+ "age"-> J(3) |< 1 |+ "klaas" |+ "age"-> J(4) |> ) ==> JsStack(JP(""" { "class": { "piet": { "age" : 3 } , "klaas": { "age" : 4 }  } } """))  }
@@ -386,7 +381,7 @@ object JsonTest extends TestSuite
     }
 
     "stack survive reversing"-
-    { * - { ( (sourcex | "number") |!- true |>> )     ==> (if (strict) J(-42) else J(-43))                    }
+    { * - { ( (sourcex | "number") |!- true |>> )     ==> (if (multiple) J(-42) else J(-43))                    }
       * - { ( (sourcex | "array")  |!- true  |>> )    ==> !JP(""" ["3","2","1"] """)                          }
       * - { ( (sourcex | "object") |!- true  |> )     ==> !valinverse                                         }
       * - { ( (sourcex | "object") |!- J(true)  |>> ) ==> !JP(""" {"drie": 3, "twee": 2, "een": 1} """)       }
@@ -394,7 +389,7 @@ object JsonTest extends TestSuite
 
      "stack survive merges"-
     { * - { ((sourcex | "object") |++ (sourcex | "object") |>>)   ==> !JP(""" {"een":1,"twee":2,"drie":3} """)                                            }
-      * - { if (strict) { ((sourcex | "object") |&++ (sourcex | "object") |>>)  ==> !JP(""" {"een":1,"twee":2,"drie":3, "een":1,"twee":2,"drie":3} """) } }
+      * - { if (multiple) { ((sourcex | "object") |&++ (sourcex | "object") |>>)  ==> !JP(""" {"een":1,"twee":2,"drie":3, "een":1,"twee":2,"drie":3} """) } }
       * - { ((sourcex | "array") |++ (sourcex | "array") |>>)     ==> !JP(""" ["1","2","3"] """)                                                          }
       * - { ((sourcex | "array") |&++ (sourcex | "array") |>>)    ==> !JP(""" ["1","2","3","1","2","3"] """)                                              }
       * - { ((sourcex | "object") |++ (!JP(""" { "een": 1, "twee": 2, "vier": 4 } """)) |>>)   ==> !JP(""" {"een":1,"twee":2,"drie":3,"vier":4} """)      }
@@ -419,17 +414,17 @@ object JsonTest extends TestSuite
     "stack survive mapping"-
     { * - { ((sourcex | "array"  |* { js => (`!{}` |+ "val"-> js) } )   |>  )      ==> ! valresMap1                                                               }
       * - { ((sourcex | "object" |* { js => J(js.toStr+"s") })          |>  )      ==> ! valresMap2                                                               }
-      * - { if (strict) { ((sourcex | "number" |* { js => (`!{}` |+ "answer"->js) })  |>  )      ==> ! valresMap3  }                                              }
+      * - { if (multiple) { ((sourcex | "number" |* { js => (`!{}` |+ "answer"->js) })  |>  )      ==> ! valresMap3  }                                              }
       * - { ((sourcex | "array"  |* { js => (`!{}` |+ "val"-> js) } )   |>> )      ==> ! JP(""" [{"val":"1"},{"val":"2"},{"val":"3"}] """)                        }
       * - { ((sourcex | "object" |* { js => J(js.toStr+"s") })          |>> )      ==> ! JP(""" {"een":"1s","twee":"2s","drie":"3s"} """)                         }
-      * - { ((sourcex | "number" |* { js => (`!{}` |+ "answer"->js) })  |>> )      ==> (if (strict) !JP(""" {"answer":42} """) else !JP(""" {"answer":43} """))   }
+      * - { ((sourcex | "number" |* { js => (`!{}` |+ "answer"->js) })  |>> )      ==> (if (multiple) !JP(""" {"answer":42} """) else !JP(""" {"answer":43} """))   }
       * - { (((sourcex | "membs") |!* (_|"name"|>>,_|"age"|>>,_|"id"|>false))  )   ==> (Map(J("Jan") -> J(23), J("Piet") -> J(43)))                               }
       * - { (((sourcex | "membs") |!*> (_|"name"|>>,_|"age"|>>,_|"id"|>false)) )   ==> (Map("Jan" -> "23", "Piet" -> "43"))                                       }
     }
 
     "stack survive filters"-
     { * - { ((sourcex | "object" |%  { js => js.lastTo[Int](0)>=2} )   |> JsUndefined(""))    ==> JP(""" {"twee":2,"drie":3} """)                  }
-      * - { ((sourcex | "number" |%  { js => js.lastTo[Int](0)==(if(strict) 42 else 43) } ) |> JsUndefined(""))  ==> (JsBoolean(true))              }
+      * - { ((sourcex | "number" |%  { js => js.lastTo[Int](0)==(if(multiple) 42 else 43) } ) |> JsUndefined(""))  ==> (JsBoolean(true))              }
       * - { ((sourcex | "membs"  |%  { js => ((js|"age")|>0)>30 } ) |> JsUndefined(""))     ==> JP(""" [{"name":"Piet","age":43, "id":true}] """)  }
       * - { (sourcex |%  { (k,js) => (js.isEmpty) })              ==> ! JP(""" {"empobj" : {},"emparr" : [] } """)                                 }
       * - { (sourcex |%  { (k,js) => (k=="number") })             ==> ! JP(""" {"number" : 42,"number" : 43} """)                                  }
@@ -446,7 +441,7 @@ object JsonTest extends TestSuite
     "stack survive counting"-
     { * - { (sourcex |#> "absent") ==> 0                         }
       * - { (sourcex |#> "string") ==> 1                         }
-      * - { (sourcex |#> "number") ==> ( if (strict) 2 else 1 )  }
+      * - { (sourcex |#> "number") ==> ( if (multiple) 2 else 1 )  }
     }
 
     "stack survive listing"-                                                                          
@@ -457,8 +452,8 @@ object JsonTest extends TestSuite
     }
 
     "stack survive conversion"-
-    { * - { if (strict)  { (sourcex  |&> )  ==> ( List("number", "string", "empobj", "emparr", "object", "array", "numbs", "words", "membs", "number") ) } }
-      * - { if (!strict) { (sourcex  |&> )  ==> ( List("number", "string", "empobj", "emparr", "object", "array", "numbs", "words", "membs") )           } }
+    { * - { if (multiple)  { (sourcex  |&> )  ==> ( List("number", "string", "empobj", "emparr", "object", "array", "numbs", "words", "membs", "number") ) } }
+      * - { if (!multiple) { (sourcex  |&> )  ==> ( List("number", "string", "empobj", "emparr", "object", "array", "numbs", "words", "membs") )           } }
       * - { (sourcex | "object" | "een"  |??> (0,2,4) )      ==> (true,1)                                                                              }
       * - { (sourcex | "object" | "twee" |??> (0,2,4) )      ==> (true,2)                                                                              }
       * - { (sourcex | "object" | "drie" |??> (0,2,4) )      ==> (false,4)                                                                             }

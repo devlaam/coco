@@ -22,13 +22,6 @@ package devlaam.coco
 import scala.scalajs.js  
 import scala.scalajs.js.Dynamic
 
-import scala.util._
-import scala.concurrent._
-import scala.concurrent.duration._
-import scala.language.postfixOps
-import scala.collection.immutable.HashSet
-import ExecutionContext.Implicits.global
-
 object Json
 { 
   protected def parseObject(obj: js.Object) =
@@ -92,7 +85,7 @@ object JsonConversions
   implicit object  StringWrites extends Writes[String]  { def writes(value: String):  JsValue = JsString(value)  }
   implicit object JsValueWrites extends Writes[JsValue] { def writes(value: JsValue): JsValue = value            }
   
-  // kan dit intelligenter? Let op: geen reflectie voor JavaScript:
+  // TODO: kan dit intelligenter? 
   // https://github.com/playframework/playframework/blob/master/framework/src/play-json/src/main/scala/play/api/libs/json/Writes.scala
   implicit object    ByteSeqWrites extends Writes[Traversable[Byte]]    { def writes(value: Traversable[Byte]):    JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
   implicit object    BoolSeqWrites extends Writes[Traversable[Boolean]] { def writes(value: Traversable[Boolean]): JsValue = JsArray((value.map(x => JsBoolean(x)).toSeq)) }
@@ -104,7 +97,9 @@ object JsonConversions
   implicit object  StringSeqWrites extends Writes[Traversable[String]]  { def writes(value: Traversable[String]):  JsValue = JsArray((value.map(x => JsString(x)).toSeq))  }
   implicit object JsValueSeqWrites extends Writes[Traversable[JsValue]] { def writes(value: Traversable[JsValue]): JsValue = JsArray(value.toSeq)                          }
 
-  val objectBaseIsMap = true
+  val preservesDoubleKeys = false
+  val preservesKeyOrder   = true
+  
 }
 
 sealed trait JsValue extends Any

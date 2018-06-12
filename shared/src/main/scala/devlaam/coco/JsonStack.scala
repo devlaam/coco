@@ -254,8 +254,19 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
   /** MINIMALLY TESTED
    * Two possibilities to print the value
    */
-  override def toString(): String = if (isNil) "nil" else Json.stringify(curr.head)
-  def toPretty(): String = if (isNil) "nil" else Json.prettyPrint(curr.head)
+  //override def toString(): String = if (isNil) "nil" else Json.stringify(curr.head)
+   
+  @deprecated("This method will be removed", "Coco 0.6.0")
+  def toPretty()                  = prettyString
+  
+  def |:>  = simpleString
+  def |::> = prettyString
+  def |::> (jf: JsFormat) = formatString(jf)
+ 
+  def simpleString                = if (isNil) "nil" else curr.head.simpleString 
+  def prettyString: String        = if (isNil) "nil" else curr.head.prettyString 
+  def formatString(jf: JsFormat)  = if (isNil) "nil" else curr.head.formatString(jf) 
+
 
   /** MINIMALLY TESTED
    * Use toJv without parameters to return to the standard JsValue when you have no
@@ -661,7 +672,8 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
     else this match
     { case JsStack(Some(JsObject(seq)),prevJn,ind) => strip( Some(JsObject(seq map (melt(f) compose pack) filterNot (isNil(_)) map ( unpack(_) ))),prevJn,List(ind))
       case JsStack(Some(JsArray(seq)),prevJn,ind)  => strip( Some(JsArray(seq map (f compose pack) filterNot (_.isNil) map ( unpack(_) ) )),prevJn,List(ind) )
-      case JsStack(Some(j),prevJn,ind)             => strip( f(pack(j)).curr,prevJn,List(ind) ) } }
+      case JsStack(Some(j),prevJn,ind)             => strip( f(pack(j)).curr,prevJn,List(ind) ) 
+      case JsStack(None,_,_)                       => this  } }
 
   def mapStr(f: String => String): JsStack =
   { if (isNil) this
@@ -771,10 +783,11 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
         { case (mp,JsObject(jol)) =>
           { val jom = jol.toMap
             (jom.get(keykey),jom.get(valkey))  match
-            { case (Some(kkr),Some(vkr)) => mp :+ (kkr.toStr,vkr)
+            { case (Some(kkr),Some(vkr)) => mp :+ (kkr.toString,vkr)
               case _                     => mp } }
           case (mp,_)             => mp } ) )),prevJn,List(ind) ) }
-      case JsStack(Some(j),prevJn,ind)             => strip( Some(JsObject(Nil)),prevJn,List(ind) ) } }
+      case JsStack(Some(j),prevJn,ind)             => strip( Some(JsObject(Nil)),prevJn,List(ind) ) 
+      case JsStack(None,_,_)                       => this  } }
 
 
   /** MINIMALLY TESTED
@@ -952,7 +965,8 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
     else this match
     { case JsStack(Some(JsObject(seq)),prevJn,ind)  => strip( Some(JsObject(seq filter (test(f) compose pack) ) ),prevJn,List(ind))
       case JsStack(Some(JsArray(seq)),prevJn,ind)   => strip( Some(JsArray(seq filter (f compose pack))),prevJn,List(ind))
-      case JsStack(Some(j),prevJn,ind)              => strip( Some(JsBoolean(f(pack(j)))),prevJn,List(ind)) } }
+      case JsStack(Some(j),prevJn,ind)              => strip( Some(JsBoolean(f(pack(j)))),prevJn,List(ind)) 
+      case JsStack(None,_,_)                        => this } }
 
   /**
    *  Ensure the resulting object or array is distinct with respect to the outcome
@@ -1204,7 +1218,9 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
    * turn a number into a string, we need something in between, a good old toStr method.
    * For objects and arrays we use stringify. Note, toString on JsValues is implemented
    * as stringify.
+   * This has been solved, json atoms (which are not valid json) are now without ""
    */
+   @deprecated("Use the toString of simpleString methode.","Cococ 0.6.0")
   def toStr: String                     = inf(j => j.toStr,"")
 
   /** MINIMALLY TESTED
@@ -1362,11 +1378,18 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
    */
   def == (that: JsStack): Boolean = !this.isNil && !that.isNil && (this.curr == that.curr)
   def != (that: JsStack): Boolean = !this.isNil && !that.isNil && (this.curr != that.curr)
+  // We hebben een probleem ontdekt met de bovenstaande implementatie. Ongelijke nil's
+  // maakt het onmogelijk objecten te vergelijken waarin JsStack.nil's voorkomen, die worden
+  // altijd false. Een nil is niet zo zelfzaam als een NaN. 
+  // TODO: And besides, overriding == is bad style, override .equals and h.ashcode.
+  //  see http://www.scala-lang.org/api/rc/index.html#scala.Any
 }
 
 object JsStack
 { import JsonConversions._
+  //TODO: dit kan een val worden.
   def nil = JsStack(None,None,0)
+  //TODO new is hier overbodig
   def apply(jv: JsValue): JsStack = new JsStack(Some(jv),None,0)
   def parse(json: String) = Try(Json.parse(json)).map(J(_)).getOrElse(nil) 
 

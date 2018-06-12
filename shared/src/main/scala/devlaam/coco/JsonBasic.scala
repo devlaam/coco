@@ -152,21 +152,28 @@ object JsonBasic
     def to[T](f: JsValue => T): T = f(js)
 
 
-    /**
+    /** 
      * Json.stringify make literal strings (with "") whereas the implicit read does not
      * turn a number into a string, we need something in between, a good old toStr method.
      * For objects and arrays we use stringify, but this method is not meant to be used
      * for these types. Note, toString on JsValue's is implemented as stringify.
+     * This has been solved, json atoms (which are not valid json) are now without ""
      */
-    def toStr: String =
-    { js match
-      { case JsString(s)    => s
-        case JsNumber(n)    => n.toString
-        case JsBoolean(b)   => b.toString
-        case JsNull         => "null"
-        case _              => Json.stringify(js) } }
+    
+    @deprecated("Use the toString of simpleString methode.","Cococ 0.6.0")
+    def toStr: String = js.simpleString
+//    { js match
+//      { case JsString(s)    => s
+//        //case JsNumber(n)    => n.toString
+//        //case JsBoolean(b)   => b.toString
+//        //case JsNull         => "null"
+//        case _              => js.simpleString //Json.stringify(js) 
+//        } }
 
-
+    def |:>  = js.simpleString
+    def |::> = js.prettyString
+    def |::> (jf: JsFormat) = js.formatString(jf)
+    
 
     private def listHelper[T](seq: Seq[JsValue], succ: (List[T],T) => List[T], fail: List[T] => List[T])(implicit fjs: Reads[T]): List[T] =
     { seq.foldLeft(List[T]())(
@@ -242,7 +249,7 @@ object JsonBasic
     def ||&>(implicit fjs: Reads[String]): List[String] = toKeyValList(fjs)
     def toKeyValList(implicit fjs: Reads[String]): List[String] =
     { js match
-      { case JsObject(seq) => seq.map( { case (k,js) => k+" : "+ js.toStr } ).toList
+      { case JsObject(seq) => seq.map( { case (k,js) => k+" : "+ js.toString } ).toList
         case _ => List[String]() } }
 
 
@@ -454,7 +461,7 @@ object JsonBasic
         { case (mp,JsObject(jol)) =>
           { val jom = jol.toMap
             (jom.get(keykey),jom.get(valkey))  match
-            { case (Some(kkr),Some(vkr)) => mp :+ (kkr.toStr,vkr)
+            { case (Some(kkr),Some(vkr)) => mp :+ (kkr.toString,vkr)
               case _ => mp } }
           case (mp,_) => mp } )
         case _ => Seq[PairJ]() } ) }

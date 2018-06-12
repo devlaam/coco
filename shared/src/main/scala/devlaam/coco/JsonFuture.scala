@@ -57,8 +57,19 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
 
   def length: Future[Int] = jsf.map(_.length)
 
-  def toFString(): Future[String] = jsf.map(_.toString())
-  def toPretty():  Future[String] = jsf.map(_.toPretty())
+  @deprecated("This method will be removed", "Coco 0.6.0")
+  def toFString(): Future[String] = simpleString  //jsf.map(_.toString())
+  @deprecated("This method will be removed", "Coco 0.6.0")
+  def toPretty():  Future[String] = prettyString  //jsf.map(_.toPretty())
+  
+  def |:>  = simpleString
+  def |::> = prettyString
+  def |::> (jf: JsFormat) = formatString(jf)
+  
+  def simpleString                = jsf.map(_.simpleString)
+  def prettyString                = jsf.map(_.prettyString)
+  def formatString(jf: JsFormat)  = jsf.map(_.formatString(jf))
+
 
   def toJv: Future[Option[JsValue]] = jsf.map(_.curr)
 
@@ -261,6 +272,7 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
   def |?>(kvs: PairJx): Future[Boolean]     = hasPair(kvs)
   def hasPair(kvs: PairJx): Future[Boolean] = jsf.map(_.hasPair(kvs))
 
+  @deprecated("Use the toString of simpleString methode.","Cococ 0.6.0")
   def toStr: Future[String]  = jsf.map(_.toStr)
 
   //def unary_-                = inverse
@@ -389,4 +401,5 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
 }
 
 object JsFuture
-{ def nil = JsFuture(Future(JsStack.nil)) }
+{  //TODO: dit kan een val worden.
+   def nil = JsFuture(Future(JsStack.nil)) }

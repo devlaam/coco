@@ -46,12 +46,13 @@ object JsonLib
   /**
    * Default objects for general use
    */
-  val `{}` = JsObject(Nil)
-  val `[]` = JsArray(Nil)
+  val `{}`  = JsObject(Nil)
+  val `[]`  = JsArray(Nil)
   val `!{}` = JsStack(`{}`)
   val `![]` = JsStack(`[]`)
   val `@{}` = JsFuture(Future(`!{}`))
   val `@[]` = JsFuture(Future(`![]`))
+  val J0    = JsStack.nil
 
 
   /**
@@ -103,7 +104,7 @@ object JsonLib
   { map.foldLeft(Map[String,String]())(
     { case (mss,(jvlKey,jvlVal)) =>
       { if ((jvlKey.isFilled) && (jvlVal.isFilled))
-        { mss + (jvlKey.toStr->jvlVal.toStr) }
+        { mss + (jvlKey.toString->jvlVal.toString) }
         else mss  } } ) }
 
 
@@ -114,7 +115,7 @@ object JsonLib
   { map.foldLeft(Map[String,String]())(
     { case (mss,(jvlKey,jvlVal)) =>
       { if ((jvlKey.isFilled) && (jvlVal.isFilled))
-        { mss + (jvlKey.toStr->jvlVal.toStr) }
+        { mss + (jvlKey.toString->jvlVal.toString) }
         else  mss } } ) }
 
   /**
@@ -155,6 +156,18 @@ object JsonLib
   private[coco] implicit class StringJsonOps(val s: String) extends AnyVal
   { import scala.util.control.Exception._
     def asInt = catching(classOf[NumberFormatException]) opt s.toInt
+  }
+
+  /* To enable an even shorter and stronger form of JsString definition. */
+  implicit class JsonString(private val sc: StringContext) extends AnyVal
+  { def j(args: Any*): JsValue =
+    { val str = sc.s(args: _*)
+      JsString(str) } 
+  
+   def J(args: Any*): JsStack =
+   { val str = sc.s(args: _*)
+     JsStack(JsString(str)) } 
+  
   }
 
   /**

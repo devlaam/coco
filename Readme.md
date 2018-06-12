@@ -3,7 +3,10 @@ CoCo: Simple extension to Play Json.
 
 This library can be used for the "coast to coast" application, or just if you like operator language.
 
-Development stage: alpha (but usable!)
+Development stage: 
+ * alpha (but usable! Will it ever get out?)
+ * play dependency removed from version 0.6.0, still using its AST definition though, using jawn for parsing.
+ * works under Scala JVM and Scala JS alike
  
 Motivation:
 * Needed a first project to get practice in Scala.
