@@ -1024,7 +1024,8 @@ object JsonBasic
      *  are not of the desired type. For example a integer kept as string. Use the |%>
      *  to cast to a type with a default value
      *  give for those casts that do not succeed.
-     *  cases i
+     *  
+     *  TODO: Doe we really need this?
      *
      */
 
@@ -1145,24 +1146,6 @@ object JsonBasic
      new JsValueConditionalHelp(result,js) }
 
     def testT(jt: JsPointer, invert: Boolean = false) =  new JsValueConditionalHelp(testI(jt,invert),js)
-//    { val result = (js,jt) match
-//      { case (_:JsUndefined,        _ )  =>   false
-//        case (JsObject(_)  ,  `objekt`)  => !invert
-//        case (_            ,  `objekt`)  =>  invert
-//        case (JsArray(_)   ,  `array` )  => !invert
-//        case (_            ,  `array` )  =>  invert
-//        case (JsString(_)  ,  `simple`)  => !invert
-//        case (JsNumber(_)  ,  `simple`)  => !invert
-//        case (JsBoolean(_) ,  `simple`)  => !invert
-//        case (_            ,  `simple`)  =>  invert
-//        case (JsString(_)  ,  `string`)  => !invert
-//        case (_            ,  `string`)  =>  invert
-//        case (JsNumber(_)  ,  `number`)  => !invert
-//        case (_            ,  `number`)  =>  invert
-//        case (JsBoolean(_) , `boolean`)  => !invert
-//        case (_            , `boolean`)  =>  invert
-//        case _                           =>   false }
-//      new JsValueConditionalHelp(result,js) }
 
     /** MINIMALLY TESTED
      * Remove all elements with a particular value from the array
@@ -1394,6 +1377,8 @@ object JsonBasic
      * JsSimple + JsSimple     => latter wins
      * JsValue  + JsUndefined  => JsValue wins
      * Objects themselfs should not contain multiple keys, the result is undefined.
+     * 
+     * TODO: Do we really need this?
      */
 //    def |&& (jv: JsValue): JsValue = merge(jv)
 //    def merge(jv: JsValue): JsValue =

@@ -367,10 +367,10 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
   def |??> (dflt: String): Future[(Boolean,String)]                     = valid(dflt)
   def valid(dflt: String): Future[(Boolean,String)]                     = jsf.map(_.valid(dflt))
 
-  def == (that: JsStack):  Future[Boolean] = jsf.map(_.==(that))
-  def != (that: JsStack):  Future[Boolean] = jsf.map(_.!=(that))
-  def == (that: JsFuture): Future[Boolean] = jsf.flatMap(js => that.jsf.map(jt => (js==jt)))
-  def != (that: JsFuture): Future[Boolean] = jsf.flatMap(js => that.jsf.map(jt => (js!=jt)))
+  //def == (that: JsStack):  Future[Boolean] = jsf.map(_.==(that))
+  //def != (that: JsStack):  Future[Boolean] = jsf.map(_.!=(that))
+  //def == (that: JsFuture): Future[Boolean] = jsf.flatMap(js => that.jsf.map(jt => (js==jt)))
+  //def != (that: JsFuture): Future[Boolean] = jsf.flatMap(js => that.jsf.map(jt => (js!=jt)))
 
 }
 

@@ -1317,8 +1317,8 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
    * return true if both values are non nil and equal. Likewise comparing for
    * unequality != can only return true if both values are non nil and unequal.
    */
-  def == (that: JsStack): Boolean = !this.isNil && !that.isNil && (this.curr == that.curr)
-  def != (that: JsStack): Boolean = !this.isNil && !that.isNil && (this.curr != that.curr)
+  //def == (that: JsStack): Boolean = !this.isNil && !that.isNil && (this.curr == that.curr)
+  //def != (that: JsStack): Boolean = !this.isNil && !that.isNil && (this.curr != that.curr)
   // We hebben een probleem ontdekt met de bovenstaande implementatie. Ongelijke nil's
   // maakt het onmogelijk objecten te vergelijken waarin JsStack.nil's voorkomen, die worden
   // altijd false. Een nil is niet zo zelfzaam als een NaN. 
