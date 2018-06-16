@@ -28,7 +28,11 @@ object jsConstants
                  "number" : 43 } """)
                  
                  
-  val SourceCopy=JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
+  val simpleSource = """{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}]}"""              
+  val compactSource = """{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}"""              
+   
+  val  jSimple   = JP(simpleSource)
+  val SourceCopy =  JP(compactSource)
 
   val resMoveUp  = JP(""" {"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"one"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":2},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43} """)
   val resPointr  = JP(""" {"number":42,"string":"Boe","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":1.1},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43} """)
@@ -287,6 +291,14 @@ object JsonTest extends TestSuite
       * - { j("hi") ==> JsString("hi")  }
     }
 
+    "basic survive serialization"-
+    { * - { (Json.parse(jSimple |:>)  |:>) ==> simpleSource }
+      * - { (Json.parse(jSimple |::>) |:>) ==> simpleSource }
+      * - { (Json.parse(jSimple.prettyString(false,false)) |:>) ==> simpleSource }
+      * - { (Json.parse(jSimple.prettyString(false,true))  |:>) ==> simpleSource }
+      * - { (Json.parse(jSimple.prettyString(true,false))  |:>) ==> simpleSource }
+    }
+    
     "stack survive moving in document"-
     { * - { (sourcex | "numbs" | 0 |+ "een"->J("one") |< 2 | "words" | 1 |+ "twee"->J(2) |> )  ==> JsStack(resMoveUp)   }
       * - { (sourcex | "numbs" | 0 |+ "een"->(J(1.1)) |< first |+ "string"->J("Boe") |> )      ==> JsStack(resPointr)   }
@@ -505,6 +517,13 @@ object JsonTest extends TestSuite
       * - { (sourcex  | "number" |?> `boolean` )  ==> false  }
     }
 
+    "stack survive serialization"-
+    { * - { (Json.parse(J(jSimple) |:>)  |:>) ==> simpleSource }
+      * - { (Json.parse(J(jSimple) |::>) |:>) ==> simpleSource }
+      * - { (Json.parse(J(jSimple).prettyString(false,false)) |:>) ==> simpleSource }
+      * - { (Json.parse(J(jSimple).prettyString(false,true))  |:>) ==> simpleSource }
+      * - { (Json.parse(J(jSimple).prettyString(true,false))  |:>) ==> simpleSource }
+    }
   }
 
 }

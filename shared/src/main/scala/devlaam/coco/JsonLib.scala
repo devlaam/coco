@@ -274,7 +274,10 @@ case class JsArray(value: Seq[JsValue]) extends JsValue
     val vit    = value.iterator
     buffer.append('[')
     while (vit.hasNext) 
-    { buffer.append(vit.next.simpleString) 
+    { val subval = vit.next
+      if (subval.dress) buffer.append('"') 
+      buffer.append(subval.simpleString) 
+      if (subval.dress) buffer.append('"') 
       if (vit.hasNext) buffer.append(',') }
     buffer.append(']')
     buffer.toString }
@@ -321,8 +324,11 @@ case class JsObject(value: Seq[(String,JsValue)]) extends JsValue
     val vit    = value.iterator
     buffer.append('{')
     while (vit.hasNext) 
-    { val (key,value) = vit.next
-      buffer.append('"').append(key).append('"').append(':').append(value.simpleString) 
+    { val (key,subval) = vit.next
+      buffer.append('"').append(key).append('"').append(':')
+      if (subval.dress) buffer.append('"') 
+      buffer.append(subval.simpleString) 
+      if (subval.dress) buffer.append('"') 
       if (vit.hasNext) buffer.append(',') }
     buffer.append('}')
     buffer.toString }  
