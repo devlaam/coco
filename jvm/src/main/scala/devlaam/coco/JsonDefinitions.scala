@@ -29,53 +29,55 @@ trait CocoFacade[J] extends Facade[J]
 
   def singleContext() = new FContext[J] 
   { var value: J = _
-    def add(s: CharSequence) { value = jstring(s) }
+    def add(s: CharSequence) {}
     def add(v: J) { value = v }
     def finish: J = value
     def isObj: Boolean = false }
 
   def arrayContext() = new FContext[J] 
   { val vs = mutable.ListBuffer.empty[J]
-    def add(s: CharSequence) { vs += jstring(s) }
+    def add(s: CharSequence) {}
     def add(v: J) { vs += v }
     def finish: J = jarray(vs.toList)
     def isObj: Boolean = false }
 
   def objectContext() = new FContext[J] 
-  { var key: String = null
+  { var keyStr: String = null
+    var comStr: String = null
     var vs = mutable.ListBuffer.empty[(String,J)] 
-    def add(s: CharSequence): Unit = if (key == null) { key = s.toString } else { vs += key -> jstring(s); key = null }
-    def add(v: J): Unit = { vs += key -> v; key = null }
+    override def key(s: CharSequence)     { keyStr = s.toString }
+    override def comment(s: CharSequence) { comStr = s.toString  }
+    def add(s: CharSequence) {}
+    def add(v: J) { if (keyStr != null) vs += keyStr -> v; keyStr = null }
     def finish = jobject(vs.toList)
     def isObj = true } }
 
 
 object CocoAst extends CocoFacade[JsValue] 
-{ def jnum(s: CharSequence, decIndex: Int, expIndex: Int) = jnum(s.toString)
-  def jstring(s: CharSequence)                            = jstring(s.toString)
-  
-  def jnull()                              = JsNull
-  def jfalse()                             = JsBoolean(false) 
-  def jtrue()                              = JsBoolean(true) 
-  def jnum(s: String)                      = JsNumber(BigDecimal(s))
-  def jstring(s: String)                   = JsString(s)
-  def jarray(vs: List[JsValue])            = JsArray(vs)
-  def jobject(vs: List[(String, JsValue)]) = JsObject(vs) }
+{ def jnull()                               = JsNull
+  def jfalse()                              = JsBoolean(false) 
+  def jtrue()                               = JsBoolean(true) 
+  def jnum(s: CharSequence, d: Int, e: Int) = JsNumber(BigDecimal(s.toString))
+  def jstring(s: CharSequence)              = JsString(s.toString)
+  def jarray(vs: List[JsValue])             = JsArray(vs)
+  def jobject(vs: List[(String, JsValue)])  = JsObject(vs) }
 
 
 object Json
 { 
   protected def write(any: Any): JsValue = any match 
-  { case null                   => JsNull
-    case value: Boolean         => JsBoolean(value) 
-    case value: Int             => JsNumber(value) 
-    case value: Long            => JsNumber(value) 
-    case value: Float           => JsNumber(value) 
-    case value: Double          => JsNumber(value) 
-    case value: String          => JsString(value) 
-    case value: Seq[_]          => JsArray(value map write)
-    case value: Map[_,_]        => JsObject(value.toSeq map{ case(k,v) => (k.toString,write(v)) } )  
-    case _                      => JsUndefined("Unknown type of variable.") }
+  { case null                 => JsNull
+    case value: Boolean       => JsBoolean(value) 
+    case value: Int           => JsNumber(value) 
+    case value: Long          => JsNumber(value) 
+    case value: Float         => JsNumber(value) 
+    case value: Double        => JsNumber(value) 
+    case value: String        => JsString(value) 
+    case value: Array[_]      => JsArray(value.toSeq map write)
+    case value: Set[_]        => JsArray(value.toSeq map write)
+    case value: Seq[_]        => JsArray(value map write)
+    case value: Map[_,_]      => JsObject(value.toSeq map{ case(k,v) => (k.toString,write(v)) } )  
+    case _                    => JsUndefined("Unknown type of variable.") }
   
   protected def read(json: JsValue): Any = 
   { json match
@@ -91,7 +93,7 @@ object Json
     
   /* Native serialization may vary between platforms. */
   def stringify(json: JsValue): String  = json.simpleString
-  def prettify(json: JsValue): String   = json.prettyString
+  def prettify(json: JsValue): String   = json.prettyString(false,false)
   
   def toJson[T](x: T)(implicit w: Writes[T]): JsValue = w.writes(x)
   def fromJson[T](json: JsValue)(implicit r: Reads[T]) = r.reads(json)

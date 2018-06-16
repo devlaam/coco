@@ -54,8 +54,7 @@ object JsonLib
   def j[T](x: T)(implicit fjs: Writes[T]): JsValue  = Json.toJson[T](x)(fjs)
   def J[T](x: T)(implicit fjs: Writes[T]): JsStack = JsStack(j(x)(fjs))
 
-  def j(it: Iterable[JsValue]) = JsArray(it.toSeq)
-  def J(it: Iterable[JsValue]) = !JsArray(it.toSeq)
+  def J(it: Array[JsStack])(implicit d: DummyImplicit) = !JsArray(it.filter(!_.isNil).map(_.curr.head).toSeq )
   def J(it: Iterable[JsStack])(implicit d: DummyImplicit) = !JsArray(it.filter(!_.isNil).map(_.curr.head).toSeq )
 
   /**
@@ -211,7 +210,7 @@ sealed trait JsValue extends Any
   def to[T](default: JsValue => T)(implicit r: Reads[T]): T  = r.reads(self) match { case JsSuccess(value,_) => value; case JsError => default(self) }
   
   def simpleString: String 
-  def prettyString: String = formatString(PrettyFormat,"")
+  def prettyString(compact: Boolean = true, justify: Boolean = true): String = formatString(PrettyFormat(compact,justify),"")
   def formatString(jf: JsFormat): String = formatString(jf,"")
   
   /* Renders the json in its most basic form. Basic json element, which are not valid json, are rendered
@@ -385,11 +384,9 @@ trait JsFormat
   def jsString(value: String): String        = value
   def jsUndefined(error: String): String     = s"Undefined($error)" }
 
-object PrettyFormat extends JsFormat
+case class PrettyFormat(compact: Boolean, justify: Boolean) extends JsFormat
 { val linebreaks  = true
   val spaced      = true
-  val compact     = false
-  val justify     = false
   val indent      = 2 }
 
 trait JsResult[+T]
@@ -420,14 +417,23 @@ object JsonConversions
   
   // kan dit intelligenter? Let op: geen reflectie voor JavaScript:
   // https://github.com/playframework/playframework/blob/master/framework/src/play-json/src/main/scala/play/api/libs/json/Writes.scala
-  implicit object    ByteSeqWrites extends Writes[Traversable[Byte]]    { def writes(value: Traversable[Byte]):    JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
-  implicit object    BoolSeqWrites extends Writes[Traversable[Boolean]] { def writes(value: Traversable[Boolean]): JsValue = JsArray((value.map(x => JsBoolean(x)).toSeq)) }
-  implicit object   ShortSeqWrites extends Writes[Traversable[Short]]   { def writes(value: Traversable[Short]):   JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
-  implicit object     IntSeqWrites extends Writes[Traversable[Int]]     { def writes(value: Traversable[Int]):     JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
-  implicit object    LongSeqWrites extends Writes[Traversable[Long]]    { def writes(value: Traversable[Long]):    JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
-  implicit object   FloatSeqWrites extends Writes[Traversable[Float]]   { def writes(value: Traversable[Float]):   JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
-  implicit object  DoubleSeqWrites extends Writes[Traversable[Double]]  { def writes(value: Traversable[Double]):  JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
-  implicit object  StringSeqWrites extends Writes[Traversable[String]]  { def writes(value: Traversable[String]):  JsValue = JsArray((value.map(x => JsString(x)).toSeq))  }
-  implicit object JsValueSeqWrites extends Writes[Traversable[JsValue]] { def writes(value: Traversable[JsValue]): JsValue = JsArray(value.toSeq)                          }
+  implicit object    ByteItrWrites extends Writes[Iterable[Byte]]       { def writes(value: Iterable[Byte]):    JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object    BoolItrWrites extends Writes[Iterable[Boolean]]    { def writes(value: Iterable[Boolean]): JsValue = JsArray((value.map(x => JsBoolean(x)).toSeq)) }
+  implicit object   ShortItrWrites extends Writes[Iterable[Short]]      { def writes(value: Iterable[Short]):   JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object     IntItrWrites extends Writes[Iterable[Int]]        { def writes(value: Iterable[Int]):     JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object    LongItrWrites extends Writes[Iterable[Long]]       { def writes(value: Iterable[Long]):    JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object   FloatItrWrites extends Writes[Iterable[Float]]      { def writes(value: Iterable[Float]):   JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object  DoubleItrWrites extends Writes[Iterable[Double]]     { def writes(value: Iterable[Double]):  JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object  StringItrWrites extends Writes[Iterable[String]]     { def writes(value: Iterable[String]):  JsValue = JsArray((value.map(x => JsString(x)).toSeq))  }
+  implicit object JsValueItrWrites extends Writes[Iterable[JsValue]]    { def writes(value: Iterable[JsValue]): JsValue = JsArray(value.toSeq)                          }
 
+  implicit object    ByteArrWrites extends Writes[Array[Byte]]          { def writes(value: Array[Byte]):       JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object    BoolArrWrites extends Writes[Array[Boolean]]       { def writes(value: Array[Boolean]):    JsValue = JsArray((value.map(x => JsBoolean(x)).toSeq)) }
+  implicit object   ShortArrWrites extends Writes[Array[Short]]         { def writes(value: Array[Short]):      JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object     IntArrWrites extends Writes[Array[Int]]           { def writes(value: Array[Int]):        JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object    LongArrWrites extends Writes[Array[Long]]          { def writes(value: Array[Long]):       JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object   FloatArrWrites extends Writes[Array[Float]]         { def writes(value: Array[Float]):      JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object  DoubleArrWrites extends Writes[Array[Double]]        { def writes(value: Array[Double]):     JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
+  implicit object  StringArrWrites extends Writes[Array[String]]        { def writes(value: Array[String]):     JsValue = JsArray((value.map(x => JsString(x)).toSeq))  }
+  implicit object JsValueArrWrites extends Writes[Array[JsValue]]       { def writes(value: Array[JsValue]):    JsValue = JsArray(value.toSeq)                          }
 }

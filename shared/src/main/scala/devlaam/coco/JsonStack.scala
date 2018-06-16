@@ -243,14 +243,14 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
   override def toString(): String = simpleString
    
   @deprecated("This method will be removed", "Coco 0.6.0")
-  def toPretty()                  = prettyString
+  def toPretty()                  = prettyString()
   
   def |:>  = simpleString
-  def |::> = prettyString
+  def |::> = prettyString()
   def |::> (jf: JsFormat) = formatString(jf)
  
   def simpleString                = if (isNil) "nil" else curr.head.simpleString 
-  def prettyString: String        = if (isNil) "nil" else curr.head.prettyString 
+  def prettyString(compact: Boolean = true, justify: Boolean = true): String = if (isNil) "nil" else curr.head.prettyString(compact,justify) 
   def formatString(jf: JsFormat)  = if (isNil) "nil" else curr.head.formatString(jf) 
 
 

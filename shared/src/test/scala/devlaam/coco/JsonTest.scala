@@ -279,6 +279,13 @@ object JsonTest extends TestSuite
       * - { (source  | "number" |?> `number` )   ==> true  }
       * - { (source  | "number" |?> `boolean` )  ==> false }
     }
+    
+    "basic survive implicit conversions"-
+    { * - { j(true) ==> JsBoolean(true) }
+      * - { j(4)    ==> JsNumber(4)     }
+      * - { j(4.0)  ==> JsNumber(4.0)   }
+      * - { j("hi") ==> JsString("hi")  }
+    }
 
     "stack survive moving in document"-
     { * - { (sourcex | "numbs" | 0 |+ "een"->J("one") |< 2 | "words" | 1 |+ "twee"->J(2) |> )  ==> JsStack(resMoveUp)   }

@@ -53,14 +53,14 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
   @deprecated("This method will be removed", "Coco 0.6.0")
   def toFString(): Future[String] = simpleString 
   @deprecated("This method will be removed", "Coco 0.6.0")
-  def toPretty():  Future[String] = prettyString
+  def toPretty():  Future[String] = prettyString()
   
   def |:>  = simpleString
-  def |::> = prettyString
+  def |::> = prettyString()
   def |::> (jf: JsFormat) = formatString(jf)
   
   def simpleString                = jsf.map(_.simpleString)
-  def prettyString                = jsf.map(_.prettyString)
+  def prettyString(compact: Boolean = true, justify: Boolean = true) = jsf.map(_.prettyString(compact,justify))
   def formatString(jf: JsFormat)  = jsf.map(_.formatString(jf))
 
 

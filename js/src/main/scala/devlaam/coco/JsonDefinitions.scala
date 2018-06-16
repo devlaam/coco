@@ -30,14 +30,20 @@ object Json
     dict.keys.zip(vals).toSeq }
 
   protected def write(any: Any): JsValue = any match 
-  { case null               => JsNull
-    case value: Boolean     => JsBoolean(value) 
-    case value: Int         => JsNumber(value) 
-    case value: Double      => JsNumber(value) 
-    case value: String      => JsString(value) 
-    case value: js.Array[_] => JsArray(value map write)
-    case value: js.Object   => JsObject(parseObject(value))
-    case _                  => JsUndefined("Unknown type of variable.") }
+  { case null                 => JsNull
+    case value: Boolean       => JsBoolean(value) 
+    case value: Int           => JsNumber(value) 
+    case value: Long          => JsNumber(value) 
+    case value: Float         => JsNumber(value) 
+    case value: Double        => JsNumber(value) 
+    case value: String        => JsString(value) 
+    case value: Array[_]      => JsArray(value.toSeq map write)
+    case value: Set[_]        => JsArray(value.toSeq map write)
+    case value: Seq[_]        => JsArray(value map write)
+    case value: Map[_,_]      => JsObject(value.toSeq map{ case(k,v) => (k.toString,write(v)) } )  
+    case value: js.Array[_]   => JsArray(value map write)
+    case value: js.Object     => JsObject(parseObject(value))
+    case _                    => JsUndefined("Unknown type of variable.") }
   
   protected def read(json: JsValue): Any = 
   { json match

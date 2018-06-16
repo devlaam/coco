@@ -160,7 +160,7 @@ object JsonBasic
     def toStr: String = js.simpleString
 
     def |:>  = js.simpleString
-    def |::> = js.prettyString
+    def |::> = js.prettyString()
     def |::> (jf: JsFormat) = js.formatString(jf)
     
 
