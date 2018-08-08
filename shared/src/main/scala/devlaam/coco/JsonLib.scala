@@ -21,7 +21,7 @@ package devlaam.coco
 
 import scala.language.postfixOps
 import scala.concurrent._
-import scala.collection.mutable
+import scala.collection.mutable.StringBuilder
 import ExecutionContext.Implicits.global
 
 
@@ -52,10 +52,11 @@ object JsonLib
    * cast to JsValue and capital J to cast to JsValues.
    */
   def j[T](x: T)(implicit fjs: Writes[T]): JsValue  = Json.toJson[T](x)(fjs)
-  def J[T](x: T)(implicit fjs: Writes[T]): JsStack = JsStack(j(x)(fjs))
+  def J[T](x: T)(implicit fjs: Writes[T]): JsStack  = JsStack(j(x)(fjs))
 
-  def J(it: Array[JsStack])(implicit d: DummyImplicit) = !JsArray(it.filter(!_.isNil).map(_.curr.head).toSeq )
-  def J(it: Iterable[JsStack])(implicit d: DummyImplicit) = !JsArray(it.filter(!_.isNil).map(_.curr.head).toSeq )
+  def J(it: Array[JsStack])(implicit d: DummyImplicit)      = !JsArray(  it.filter(!_.isNil).map(_.curr.head).toSeq )
+  def J(it: Iterable[JsStack])(implicit d: DummyImplicit)   = !JsArray(  it.filter(!_.isNil).map(_.curr.head).toSeq )
+  def J(it: Map[String,JsStack])(implicit d: DummyImplicit) = !JsObject( it.filter(!_._2.isNil).mapValues(_.curr.head).toSeq )
 
   /**
    * Auxiliary function to collect the results of all futures.
@@ -71,7 +72,7 @@ object JsonLib
     { case (mss,(jvKey,jvVal)) =>
       { if (!jvKey.isEmpty && !jvVal.isEmpty)
         { (fjt.reads(jvKey),fjs.reads(jvVal)) match
-          { case (JsSuccess(jst,_),JsSuccess(jss,_)) => mss + (jst->jss)
+          { case (Some(jst),Some(jss)) => mss + (jst->jss)
             case (_,_) =>  mss  } }
         else mss } } ) }
 
@@ -142,17 +143,95 @@ object JsonLib
     def asInt = catching(classOf[NumberFormatException]) opt s.toInt
   }
 
+  private[coco] implicit class StringJsonBuilderOps(val sb: StringBuilder) extends AnyVal
+  { /* Most efficient way to remove the last n characters without issueing an internal array.copy
+       which delete does. If n >= size the buffer is empty afterwards, but the capacity is preserved. */ 
+    def remove(n: Int): StringBuilder = 
+    { if (n > sb.length) sb.setLength(0) else if (n > 0) sb.setLength(sb.length-n)
+      sb }
+    
+    /* Convineance methods because we use them a lot. */
+    def extend(c: Char,   when: Boolean): StringBuilder = if (when) sb.append(c) else sb
+    def extend(s: String, when: Boolean): StringBuilder = if (when) sb.append(s) else sb
+    def remove(n: Int,    when: Boolean): StringBuilder = if (when) sb.remove(n) else sb 
+  }
+  
   /* To enable an even shorter and stronger form of JsString definition. */
   implicit class JsonString(private val sc: StringContext) extends AnyVal
   { def j(args: Any*): JsValue =
     { val str = sc.s(args: _*)
       JsString(str) } 
   
-   def J(args: Any*): JsStack =
-   { val str = sc.s(args: _*)
-     JsStack(JsString(str)) } 
-  
+    def J(args: Any*): JsStack =
+    { val str = sc.s(args: _*)
+      JsStack(JsString(str)) }   
+   
   }
+
+ 
+  /* This filter just escapes the allowed control charcters and ignores other. So its contents
+   * may differ after operation, but it will be a valid json string afterwards, even if empty. 
+   * The forward slash (solidus) is NOT escaped. */
+  def serialize(s: String): String = serialize(s,new StringBuilder(s.length * 6 / 5)).toString 
+
+  def serialize(s: String, buffer: StringBuilder): StringBuilder = 
+    if (s.forall( c => c >= ' ' && c != '"')) buffer.append(s) else
+    { s.foreach { _ match 
+      { case '"'  => buffer.append('\\').append('"')
+        case '\\' => buffer.append('\\').append('\\')
+        case '\b' => buffer.append('\\').append('b')
+        case '\f' => buffer.append('\\').append('f')
+        case '\n' => buffer.append('\\').append('n')
+        case '\r' => buffer.append('\\').append('r')
+        case '\t' => buffer.append('\\').append('t')
+        case char => 
+        { val i = char.toInt
+          if      (i<16) buffer.append("\\u000").append(i.toHexString)
+          else if (i<32) buffer.append("\\u00").append(i.toHexString)
+          else           buffer.append(char) } } }
+     buffer } 
+  
+  /* This filter reverses the actions of the escaping filter. It assumes a valid json string. */
+  def deserialize(s: String): String = if (s.forall( c => c >= ' ' && c != '\\')) s else
+  { val result = new StringBuilder(s.length)
+    var esc: Boolean = false
+    var uni: Int = 0
+    var cum: Int = 0
+    
+    def read(c: Char): Int = 
+    { if      ('0'<=c && c<='9') c.toInt - '0'.toInt
+      else if ('A'<=c && c<='F') c.toInt - 'A'.toInt + 10
+      else if ('a'<=c && c<='f') c.toInt - 'a'.toInt + 10
+      else                       -1 }
+  
+    def unicode(c: Char) 
+    { lazy val hex = read(c) 
+      if ( cum >= 0 && hex >= 0 )  cum = (cum << 4) | hex  else  cum = -1 
+      if ( uni == 4 && cum >= 0 )  result.append(cum.toChar) 
+      if ( uni >= 4 )              { uni = 0; cum = 0 } else uni += 1  }
+      
+    def escaped(c: Char) 
+    { esc = false 
+      c match 
+      { case '"'  => result.append('"')
+        case '\\' => result.append('\\')
+        case '/'  => result.append('/')
+        case 'b'  => result.append('\b')
+        case 'f'  => result.append('\f')
+        case 'n'  => result.append('\n')
+        case 'r'  => result.append('\r')
+        case 't'  => result.append('\t')
+        case 'u'  => uni = 1
+        /* illegal char after escape, ignore. */
+        case _    => { } } }
+    
+    def regular(c: Char) { c match 
+    { case '\\'  => esc = true
+      case char  => if (char >= ' ') result.append(char) } }
+      
+    s foreach { c => if (esc) escaped(c) else if (uni>0) unicode(c) else regular(c) }
+
+    result.toString }
 
   /**
    *  Adds extensions methods to the `JSON` companion object.
@@ -198,67 +277,69 @@ object JsonLib
 
 }
 
-
-
 sealed trait JsValue extends Any
 { self =>
-  protected[coco] def formatString(jf: JsFormat, indentStr: String): String
+      
+  protected[coco] def toSimple(buffer: StringBuilder): StringBuilder
+  protected[coco] def toFormat(jf: JsFormat, indentStr: String, buffer: StringBuilder): StringBuilder
   protected[coco] def depth: Int
   protected[coco] def dress: Boolean
+  protected[coco] def emptyBuff = new StringBuilder(0)
+  protected[coco] def newBuff   = new StringBuilder(1024)
+  protected[coco] def saveAppend(s: String, buffer: StringBuilder): StringBuilder = if (s == null) emptyBuff else buffer.append(s)
+  
+  def to[T](default: T)(implicit r: Reads[T]): T             = r.reads(self) match { case Some(value) => value; case None => default }
+  def to[T](default: JsValue => T)(implicit r: Reads[T]): T  = r.reads(self) match { case Some(value) => value; case None => default(self) }
+  
+  def simpleString: String = simpleString("","")
+  def simpleString(pre: String, post: String): String = toSimple(newBuff.append(pre)).append(post).toString 
+  def formatString(jf: JsFormat): String = toFormat(jf,"",newBuff).toString
+  def prettyString(compact: Boolean = true, justify: Boolean = true): String = formatString(PrettyFormat(compact,justify))
 
-  def to[T](default: T)(implicit r: Reads[T]): T             = r.reads(self) match { case JsSuccess(value,_) => value; case JsError => default }
-  def to[T](default: JsValue => T)(implicit r: Reads[T]): T  = r.reads(self) match { case JsSuccess(value,_) => value; case JsError => default(self) }
-  
-  def simpleString: String 
-  def prettyString(compact: Boolean = true, justify: Boolean = true): String = formatString(PrettyFormat(compact,justify),"")
-  def formatString(jf: JsFormat): String = formatString(jf,"")
-  
   /* Renders the json in its most basic form. Basic json element, which are not valid json, are rendered
    * as expected, i.e.without "" surrounding "" on the outside. */
   override def toString() = simpleString
 
 }
 
-case class  JsSuccess[T](value: T, path: Any) extends JsResult[T]
-case object JsError extends JsResult[Nothing]
-
 case object JsNull extends JsValue
 { protected[coco] def dress = false
-  protected[coco] def formatString(jf: JsFormat, indentStr: String) = jf.jsNull
   protected[coco] def depth = 0
-  def simpleString = "null" 
+  protected[coco] def toFormat(jf: JsFormat, indentStr: String, buffer: StringBuilder) = saveAppend(jf.jsNull,buffer)
+  protected[coco] def toSimple(buffer: StringBuilder) = buffer.append("null") 
 }
 
-case class  JsUndefined(error: String)  extends AnyVal with JsValue 
+case class  JsUndefined(error: String) extends AnyVal with JsValue
 { protected[coco] def dress = true
-  protected[coco] def formatString(jf: JsFormat, indentStr: String) = jf.jsUndefined(error) 
   protected[coco] def depth = 0
-  def simpleString = s"Undefined($error)"
+  protected[coco] def toFormat(jf: JsFormat, indentStr: String, buffer: StringBuilder) = saveAppend(jf.jsUndefined(error),buffer)
+  protected[coco] def toSimple(buffer: StringBuilder) = JsonLib.serialize(s"Undefined($error)",buffer)
 }
 
-case class  JsBoolean(value: Boolean)   extends AnyVal with JsValue 
+case class  JsBoolean(value: Boolean) extends AnyVal with JsValue 
 { protected[coco] def dress = false
-  protected[coco] def formatString(jf: JsFormat, indentStr: String) = jf.jsBoolean(value) 
   protected[coco] def depth = 0
-  def simpleString = value.toString
+  protected[coco] def toFormat(jf: JsFormat, indentStr: String, buffer: StringBuilder) = saveAppend(jf.jsBoolean(value),buffer)
+  protected[coco] def toSimple(buffer: StringBuilder) = buffer.append(value.toString) 
 }
 
 case class  JsNumber(value: BigDecimal) extends AnyVal with JsValue 
 { protected[coco] def dress = false
-  protected[coco] def formatString(jf: JsFormat, indentStr: String) = jf.jsNumber(value) 
   protected[coco] def depth = 0
-  def simpleString = value.toString
+  protected[coco] def toFormat(jf: JsFormat, indentStr: String, buffer: StringBuilder) = saveAppend(jf.jsNumber(value),buffer)
+  protected[coco] def toSimple(buffer: StringBuilder) = buffer.append(value.toString) 
 }
 
-case class  JsString(value: String)     extends AnyVal with JsValue 
+case class  JsString(value: String) extends AnyVal with JsValue
 { protected[coco] def dress = true
-  protected[coco] def formatString(jf: JsFormat, indentStr: String) = jf.jsString(value)  
   protected[coco] def depth = 0
-  def simpleString  = value
+  protected[coco] def toFormat(jf: JsFormat, indentStr: String, buffer: StringBuilder) = saveAppend(jf.jsString(value),buffer)
+  protected[coco] def toSimple(buffer: StringBuilder) = JsonLib.serialize(value,buffer)
 }
 
 case class JsArray(value: Seq[JsValue]) extends JsValue
-{ def ++ (that: JsArray) = JsArray(this.value ++ that.value)
+{ import JsonLib.StringJsonBuilderOps
+  def ++ (that: JsArray) = JsArray(this.value ++ that.value)
   def :+ (el: JsValue)   = JsArray(value :+ el)
   def +: (el: JsValue)   = JsArray(el +: value) 
   
@@ -269,46 +350,40 @@ case class JsArray(value: Seq[JsValue]) extends JsValue
     else if (value.forall(_.depth == 0)) 1
     else                                 2    
 
-  def simpleString =
-  { val buffer = new mutable.StringBuilder(value.size*50)
-    val vit    = value.iterator
+  protected[coco] def toSimple(buffer: StringBuilder) =
+  { val vit = value.iterator
     buffer.append('[')
     while (vit.hasNext) 
     { val subval = vit.next
-      if (subval.dress) buffer.append('"') 
-      buffer.append(subval.simpleString) 
-      if (subval.dress) buffer.append('"') 
-      if (vit.hasNext) buffer.append(',') }
-    buffer.append(']')
-    buffer.toString }
-
-  protected[coco] def formatString(jf: JsFormat, indentStr: String) = if (value.isEmpty) jf.emptyArrayStr else
-  { val indentExtStr = indentStr + jf.indentStr
-    val buffer       = new mutable.StringBuilder(value.size*50)
-    val multiline    = jf.linebreaks && (!jf.compact || depth==2)
-    val vit          = value.iterator
-    buffer.append('[') 
-    if (multiline) { if (jf.compact) buffer.append(jf.indentStr.drop(1)) else buffer.append('\n').append(indentExtStr) }
-    else           { if (jf.spaced)  buffer.append(' ') }
-    while (vit.hasNext) 
-    { val subval         = vit.next
-      val formattedValue = subval.formatString(jf,indentExtStr)
-      if (formattedValue != null)
-      { if (subval.dress) buffer.append('"') 
-        buffer.append(formattedValue)
-        if (subval.dress) buffer.append('"') 
-        if (vit.hasNext) buffer.append(',') 
-        if (multiline && (!jf.compact || vit.hasNext))  
-        { buffer.append('\n').append(indentStr) 
-          if (vit.hasNext) buffer.append(jf.indentStr) }
-        else           
-        { if (jf.spaced) buffer.append(' ') } } }
-    buffer.append(']')
-    buffer.toString }
+      buffer.extend('"',subval.dress) 
+      subval.toSimple(buffer)
+      buffer.extend('"',subval.dress).extend(',',vit.hasNext) }
+    buffer.append(']') }
+  
+  protected[coco] def toFormat(jf: JsFormat, indentStr: String, buffer: StringBuilder) = 
+    if (value.isEmpty) buffer.append(jf.emptyArrayStr) else
+    { val indentExtStr = indentStr + jf.indentStr
+      val multiline    = jf.linebreaks && (!jf.compact || depth==2)
+      val vit          = value.iterator
+      buffer.append('[') 
+      if (multiline) { if (jf.compact) buffer.append(jf.indentStr.drop(1)) else buffer.append('\n').append(indentExtStr) }
+      else           { if (jf.spaced)  buffer.append(' ') }
+      while (vit.hasNext) 
+      { val subval = vit.next
+        buffer.extend('"',subval.dress) 
+        if (subval.toFormat(jf,indentExtStr,buffer).isEmpty) buffer.remove(1,subval.dress) else
+        { buffer.extend('"',subval.dress).extend(',',vit.hasNext) 
+          if (multiline && (!jf.compact || vit.hasNext))  
+          { buffer.append('\n').append(indentStr).extend(jf.indentStr,vit.hasNext) }
+          else           
+          { buffer.extend(' ',jf.spaced) } } }
+      buffer.append(']') }
 }
 
 case class JsObject(value: Seq[(String,JsValue)]) extends JsValue
-{ def ++ (that: JsObject)          = JsObject(this.value ++ that.value)
+{ import JsonLib.StringJsonBuilderOps
+  
+  def ++ (that: JsObject)          = JsObject(this.value ++ that.value)
   def -  (key: String)             = JsObject(value.filter(_._1 != key))
   def +  (elm: (String, JsValue))  = JsObject(value :+ elm) 
   
@@ -319,54 +394,46 @@ case class JsObject(value: Seq[(String,JsValue)]) extends JsValue
     else if (value.forall(_._2.depth == 0)) 1
     else                                    2    
 
-  def simpleString =
-  { val buffer = new mutable.StringBuilder(value.size*100)
-    val vit    = value.iterator
+  protected[coco] def toSimple(buffer: StringBuilder) =
+  { val vit = value.iterator
     buffer.append('{')
     while (vit.hasNext) 
     { val (key,subval) = vit.next
-      buffer.append('"').append(key).append('"').append(':')
-      if (subval.dress) buffer.append('"') 
-      buffer.append(subval.simpleString) 
-      if (subval.dress) buffer.append('"') 
-      if (vit.hasNext) buffer.append(',') }
-    buffer.append('}')
-    buffer.toString }  
+      buffer.append('"').append(key).append('"').append(':').extend('"',subval.dress) 
+      subval.toSimple(buffer)
+      buffer.extend('"',subval.dress).extend(',',vit.hasNext) }
+    buffer.append('}') }  
 
-  protected[coco] def formatString(jf: JsFormat, indentStr: String) = if (value.isEmpty) jf.emptyObjectStr else
-  { lazy val justifyStr = " " * value.foldLeft(0){ case(curr,elm) => curr max elm._1.length }
-    val indentExtStr    = indentStr + jf.indentStr
-    val buffer          = new mutable.StringBuilder(value.size*100)
-    val multiline       = jf.linebreaks && (!jf.compact || depth==2)
-    val vit             = value.iterator
-    buffer.append('{') 
-    if (multiline) { if (jf.compact) buffer.append(jf.indentStr.drop(1)) else buffer.append('\n').append(indentExtStr) }
-    else           { if (jf.spaced)  buffer.append(' ') }
-    while (vit.hasNext) 
-    { val (key,subval)   = vit.next
-      val formattedValue = subval.formatString(jf,indentExtStr)
-      if (formattedValue != null) 
-      { buffer.append('"').append(key).append('"')
-        if (jf.justify && multiline) buffer.append(justifyStr.drop(key.length)) 
-        if (jf.spaced) buffer.append(' ')
-        buffer.append(':')
+  protected[coco] def toFormat(jf: JsFormat, indentStr: String, buffer: StringBuilder) = 
+    if (value.isEmpty) buffer.append(jf.emptyObjectStr) else
+    { lazy val justifyStr = " " * value.foldLeft(0){ case(curr,elm) => curr max elm._1.length }
+      val indentExtStr    = indentStr + jf.indentStr
+      val keybuf          = new StringBuilder(100)
+      val multiline       = jf.linebreaks && (!jf.compact || depth==2)
+      val vit             = value.iterator
+      buffer.append('{') 
+      if (multiline) { if (jf.compact) buffer.append(jf.indentStr.drop(1)) else buffer.append('\n').append(indentExtStr) }
+      else           { buffer.extend(' ',jf.spaced) }
+      while (vit.hasNext) 
+      { val (key,subval) = vit.next
+        val saveLen      = buffer.length
+        buffer.append('"').append(key).append('"')
+        buffer.extend(justifyStr.drop(key.length),jf.justify && multiline) 
+        buffer.extend(' ',jf.spaced).append(':')
         val subDepth = subval.depth
-        if (jf.linebreaks && (subDepth==2 || (!jf.compact && subDepth==1)) ) buffer.append('\n').append(indentExtStr) else if (jf.spaced) buffer.append(' ')
-        if (subval.dress) buffer.append('"') 
-        buffer.append(formattedValue)
-        if (subval.dress) buffer.append('"') 
-        if (vit.hasNext) buffer.append(',') 
-        if (multiline && (!jf.compact || vit.hasNext)) 
-        { buffer.append('\n').append(indentStr) 
-          if (vit.hasNext) buffer.append(jf.indentStr) }
-        else 
-        { if (jf.spaced) buffer.append(' ') } } }
-    buffer.append('}')
-    buffer.toString }  
+        if (jf.linebreaks && (subDepth==2 || (!jf.compact && subDepth==1)) ) buffer.append('\n').append(indentExtStr) else buffer.extend(' ',jf.spaced)
+        buffer.extend('"',subval.dress) 
+        if (subval.toFormat(jf,indentExtStr,buffer).isEmpty) buffer.setLength(saveLen) else 
+        { buffer.extend('"',subval.dress).extend(',',vit.hasNext) 
+          if (multiline && (!jf.compact || vit.hasNext)) 
+          { buffer.append('\n').append(indentStr).extend(jf.indentStr,vit.hasNext) }
+          else 
+          { buffer.extend(' ',jf.spaced) } } }
+      buffer.append('}') }  
 }
 
 
-trait JsFormat
+trait JsFormat 
 { private[coco] lazy val indentStr       = " " * (indent max 1)
   private[coco] lazy val emptyArrayStr   = if (spaced)  "[ ]"  else  "[]"
   private[coco] lazy val emptyObjectStr  = if (spaced)  "{ }"  else  "{}"
@@ -383,33 +450,36 @@ trait JsFormat
   val indent: Int
   /* Define those functions you want to format yourself. If you want to reformat the string, you
    * do not add "", this is done for you, in order to be able to change it in a number of
-   * null or so. Carefull, may result in invallid json. */
+   * null or so. But, you do need to escape any non valid json chars in the json string, you can
+   * call 'serialize' to that end. Be carefull, not to return in invalid json. */
   def jsNull: String                         = "null"
   def jsBoolean(value: Boolean): String      = value.toString
   def jsNumber(value: BigDecimal): String    = value.toString
-  def jsString(value: String): String        = value
-  def jsUndefined(error: String): String     = s"Undefined($error)" }
+  def jsString(value: String): String        = JsonLib.serialize(value)
+  def jsUndefined(error: String): String     = JsonLib.serialize(s"Undefined($error)") }
+
 
 case class PrettyFormat(compact: Boolean, justify: Boolean) extends JsFormat
 { val linebreaks  = true
   val spaced      = true
   val indent      = 2 }
 
-trait JsResult[+T]
 
-trait Reads[A]   { def reads(json: JsValue): JsResult[A]  }
+trait Reads[A]   { def reads(json: JsValue): Option[A]  }
 trait Writes[-A] { def writes(a: A): JsValue              }
 
+
 object JsonConversions
-{ implicit object     ByteReads extends Reads[Byte]     { def reads(json: JsValue) = json match { case JsNumber(value)  => JsSuccess[Byte](value.byteValue,null);     case _ => JsError  } }
-  implicit object     BoolReads extends Reads[Boolean]  { def reads(json: JsValue) = json match { case JsBoolean(value) => JsSuccess[Boolean](value,null);            case _ => JsError  } }
-  implicit object    ShortReads extends Reads[Short]    { def reads(json: JsValue) = json match { case JsNumber(value)  => JsSuccess[Short](value.shortValue,null);   case _ => JsError  } }
-  implicit object      IntReads extends Reads[Int]      { def reads(json: JsValue) = json match { case JsNumber(value)  => JsSuccess[Int](value.intValue,null);       case _ => JsError  } }
-  implicit object     LongReads extends Reads[Long]     { def reads(json: JsValue) = json match { case JsNumber(value)  => JsSuccess[Long](value.longValue,null);     case _ => JsError  } }
-  implicit object    FloatReads extends Reads[Float]    { def reads(json: JsValue) = json match { case JsNumber(value)  => JsSuccess[Float](value.floatValue,null);   case _ => JsError  } }
-  implicit object   DoubleReads extends Reads[Double]   { def reads(json: JsValue) = json match { case JsNumber(value)  => JsSuccess[Double](value.doubleValue,null); case _ => JsError  } }
-  implicit object   StringReads extends Reads[String]   { def reads(json: JsValue) = json match { case JsString(value)  => JsSuccess[String](value,null);             case _ => JsError  } }
-  implicit object  JsValueReads extends Reads[JsValue]  { def reads(json: JsValue) = JsSuccess[JsValue](json,null) }
+{   
+  implicit object     ByteReads extends Reads[Byte]     { def reads(json: JsValue): Option[Byte]    = json match { case JsNumber(value)  => Some(value.byteValue);   case _ => None  } }
+  implicit object     BoolReads extends Reads[Boolean]  { def reads(json: JsValue): Option[Boolean] = json match { case JsBoolean(value) => Some(value);             case _ => None  } }
+  implicit object    ShortReads extends Reads[Short]    { def reads(json: JsValue): Option[Short]   = json match { case JsNumber(value)  => Some(value.shortValue);  case _ => None  } }
+  implicit object      IntReads extends Reads[Int]      { def reads(json: JsValue): Option[Int]     = json match { case JsNumber(value)  => Some(value.intValue);    case _ => None  } }
+  implicit object     LongReads extends Reads[Long]     { def reads(json: JsValue): Option[Long]    = json match { case JsNumber(value)  => Some(value.longValue);   case _ => None  } }
+  implicit object    FloatReads extends Reads[Float]    { def reads(json: JsValue): Option[Float]   = json match { case JsNumber(value)  => Some(value.floatValue);  case _ => None  } }
+  implicit object   DoubleReads extends Reads[Double]   { def reads(json: JsValue): Option[Double]  = json match { case JsNumber(value)  => Some(value.doubleValue); case _ => None  } }
+  implicit object   StringReads extends Reads[String]   { def reads(json: JsValue): Option[String]  = json match { case JsString(value)  => Some(value);             case _ => None  } }
+  implicit object  JsValueReads extends Reads[JsValue]  { def reads(json: JsValue): Option[JsValue] = Some(json) }
   
   implicit object    ByteWrites extends Writes[Byte]    { def writes(value: Byte):    JsValue = JsNumber(value)  }
   implicit object    BoolWrites extends Writes[Boolean] { def writes(value: Boolean): JsValue = JsBoolean(value) }
@@ -421,8 +491,6 @@ object JsonConversions
   implicit object  StringWrites extends Writes[String]  { def writes(value: String):  JsValue = JsString(value)  }
   implicit object JsValueWrites extends Writes[JsValue] { def writes(value: JsValue): JsValue = value            }
   
-  // kan dit intelligenter? Let op: geen reflectie voor JavaScript:
-  // https://github.com/playframework/playframework/blob/master/framework/src/play-json/src/main/scala/play/api/libs/json/Writes.scala
   implicit object    ByteItrWrites extends Writes[Iterable[Byte]]       { def writes(value: Iterable[Byte]):    JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
   implicit object    BoolItrWrites extends Writes[Iterable[Boolean]]    { def writes(value: Iterable[Boolean]): JsValue = JsArray((value.map(x => JsBoolean(x)).toSeq)) }
   implicit object   ShortItrWrites extends Writes[Iterable[Short]]      { def writes(value: Iterable[Short]):   JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }

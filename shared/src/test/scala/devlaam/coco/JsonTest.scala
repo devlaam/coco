@@ -1,6 +1,7 @@
 package devlaam.coco
 
 import scala.language.postfixOps
+import scala.util.Random
 
 import utest._
 
@@ -13,6 +14,31 @@ object jsConstants
 {
    def JP(s: String): JsValue = Json.parse(s)
 
+   def RandomControlString(i: Int) = 
+   { val sb = new StringBuilder(i) 
+     (0 until i) foreach (_ => sb.append(Random.nextInt(32).toChar) )
+     sb.toString }
+   
+   def RandomPrintableString(i: Int) = 
+   { val sb = new StringBuilder(i) 
+     (0 until i) foreach (_ => sb.append(Random.nextPrintableChar) )
+     sb.toString }
+   
+   def RandomUnicodeString(i: Int) = Random.nextString(i)
+   
+   def RandomAnyString(j:Int) = 
+   { Random.nextInt(5) match
+     { case 0 => RandomControlString(j)
+       case 1 => RandomPrintableString(j)
+       case 2 => RandomPrintableString(j)
+       case 3 => RandomUnicodeString(j)
+       case _ => RandomUnicodeString(j) } }
+   
+   def RandomMixedString(i: Int) =
+   { val sb = new StringBuilder(i) 
+     (0 until 20) foreach (_ => sb.append(RandomAnyString(i/20))) 
+     sb.toString }
+   
    val source = JP( """
                { "number" : 42,
                  "string" : "FooBar",
@@ -30,6 +56,8 @@ object jsConstants
                  
   val simpleSource = """{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}]}"""              
   val compactSource = """{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"een":1,"twee":2,"drie":3},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}"""              
+  val unicodeTrap =  RandomMixedString(400)
+ 
    
   val  jSimple   = JP(simpleSource)
   val SourceCopy =  JP(compactSource)
@@ -73,6 +101,14 @@ object jsConstants
   val resManE=JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":{"key":{"een":1,"twee":2,"drie":3}},"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
   val resManF=JP("""{"number":42,"string":"FooBar","empobj":{},"emparr":[],"object":[1,2,3],"array":["1","2","3"],"numbs":[{"een":"1"},{"twee":"2"},{"drie":"3"}],"words":[{"een":"one"},{"twee":"two"},{"drie":"three"}],"membs":[{"name":"Jan","age":23,"id":true},{"name":"Piet","age":43,"id":true},{"name":"Klaas","age":19,"id":false}],"number":43}""")
 
+  val ResManD=J(resManD)
+  val ResManE=J(resManE)
+  val ResManF=J(resManF)
+  
+  val array1 = Array(ResManD,ResManE,ResManF)
+  val seq1   = List(ResManD,ResManE,ResManF)
+  val map1   = Map( "ResManD"->ResManD , "ResManE"->ResManE , "ResManF"-> ResManF )
+  
 }
 
 
@@ -297,6 +333,9 @@ object JsonTest extends TestSuite
       * - { (Json.parse(jSimple.prettyString(false,false)) |:>) ==> simpleSource }
       * - { (Json.parse(jSimple.prettyString(false,true))  |:>) ==> simpleSource }
       * - { (Json.parse(jSimple.prettyString(true,false))  |:>) ==> simpleSource }
+      * - { deserialize(j(simpleSource) |:>) ==> simpleSource  }
+      * - { serialize(unicodeTrap) ==> serialize(deserialize(serialize(unicodeTrap)))  }
+      * - { serialize(deserialize(j(unicodeTrap) |:>)) ==> serialize(unicodeTrap)  }
     }
     
     "stack survive moving in document"-
@@ -498,13 +537,17 @@ object JsonTest extends TestSuite
       * - { (sourcex | "array" |%+ true |>>)                 ==> !JP( """ [["1","2","3"]] """) /* J(List(List("1","2","3"))) */                        }
       * - { (sourcex | "string" |%+ true |>>)                ==> J(List("FooBar"))                                                                     }
       * - { (sourcex | "string" |%+ "key" |>>)               ==> !JP(""" {"key":"FooBar"} """)                                                         }
-      * - { (sourcex | "object" |%+ false |>)                ==> !resManD                                                                              }
-      * - { (sourcex | "object" |%+ "key" |>)                ==> !resManE                                                                              }
+      * - { (sourcex | "object" |%+ false |>)                ==> ResManD                                                                              }
+      * - { (sourcex | "object" |%+ "key" |>)                ==> ResManE                                                                              }
      }
 
     "stack survive type cast"-
-    { * - { (sourcex  | "object" |% `array` |> )     ==> !resManF    }
+    { * - { (sourcex  | "object" |% `array` |> )     ==> ResManF }
+      * - { J(array1) ==> ( `![]` |+ ResManD |+ ResManE |+ ResManF ) }
+      * - { J(seq1)   ==> ( `![]` |+ ResManD |+ ResManE |+ ResManF ) }
+      * - { J(map1)   ==> ( `!{}` |+ "ResManD" -> ResManD |+ "ResManE" -> ResManE |+ "ResManF" -> ResManF )  }  
     }
+    
 
     "stack survive type test"-
     { * - { (sourcex  | "array" |?> `array` )     ==> true   }
@@ -523,6 +566,7 @@ object JsonTest extends TestSuite
       * - { (Json.parse(J(jSimple).prettyString(false,false)) |:>) ==> simpleSource }
       * - { (Json.parse(J(jSimple).prettyString(false,true))  |:>) ==> simpleSource }
       * - { (Json.parse(J(jSimple).prettyString(true,false))  |:>) ==> simpleSource }
+      * - { serialize(deserialize(J(unicodeTrap) |:>)) ==> serialize(unicodeTrap)  }
     }
   }
 

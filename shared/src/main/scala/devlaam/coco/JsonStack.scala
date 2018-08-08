@@ -249,7 +249,8 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
   def |::> = prettyString()
   def |::> (jf: JsFormat) = formatString(jf)
  
-  def simpleString                = if (isNil) "nil" else curr.head.simpleString 
+  def simpleString: String                             = if (isNil) "nil" else curr.head.simpleString 
+  def simpleString(pre: String, post: String): String  = if (isNil) "nil" else curr.head.simpleString(pre,post) 
   def prettyString(compact: Boolean = true, justify: Boolean = true): String = if (isNil) "nil" else curr.head.prettyString(compact,justify) 
   def formatString(jf: JsFormat)  = if (isNil) "nil" else curr.head.formatString(jf) 
 

@@ -59,9 +59,10 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
   def |::> = prettyString()
   def |::> (jf: JsFormat) = formatString(jf)
   
-  def simpleString                = jsf.map(_.simpleString)
-  def prettyString(compact: Boolean = true, justify: Boolean = true) = jsf.map(_.prettyString(compact,justify))
-  def formatString(jf: JsFormat)  = jsf.map(_.formatString(jf))
+  def simpleString: Future[String] = jsf.map(_.simpleString)
+  def simpleString(pre: String, post: String): Future[String] = jsf.map(_.simpleString(pre,post))
+  def prettyString(compact: Boolean = true, justify: Boolean = true): Future[String] = jsf.map(_.prettyString(compact,justify))
+  def formatString(jf: JsFormat): Future[String]  = jsf.map(_.formatString(jf))
 
 
   def toJv: Future[Option[JsValue]] = jsf.map(_.curr)

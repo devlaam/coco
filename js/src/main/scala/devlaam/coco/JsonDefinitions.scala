@@ -32,9 +32,6 @@ object Json
   protected def write(any: Any): JsValue = any match 
   { case null                 => JsNull
     case value: Boolean       => JsBoolean(value) 
-    case value: Int           => JsNumber(value) 
-    case value: Long          => JsNumber(value) 
-    case value: Float         => JsNumber(value) 
     case value: Double        => JsNumber(value) 
     case value: String        => JsString(value) 
     case value: Array[_]      => JsArray(value.toSeq map write)
@@ -43,13 +40,17 @@ object Json
     case value: Map[_,_]      => JsObject(value.toSeq map{ case(k,v) => (k.toString,write(v)) } )  
     case value: js.Array[_]   => JsArray(value map write)
     case value: js.Object     => JsObject(parseObject(value))
+    /* Tests below are actually only sensible for write's on scala types */
+    case value: Int           => JsNumber(value) 
+    case value: Long          => JsNumber(value) 
+    case value: Float         => JsNumber(value) 
     case _                    => JsUndefined("Unknown type of variable.") }
   
   protected def read(json: JsValue): Any = 
   { json match
     { case JsNull             => null
       case JsBoolean(value)   => value
-      case JsNumber(value)    => value.toDouble
+      case JsNumber(value)    => value
       case JsString(value)    => value
       case JsArray(value)     => js.Array(value.map(read) : _*)
       case JsObject(value)    => js.Dictionary(value.map { case (k,v) => (k, read(v)) } :_*)

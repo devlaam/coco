@@ -138,8 +138,8 @@ object JsonBasic
     def |>[T](dflt: T)(implicit fjs: Reads[T]): T = js.to[T](dflt)
     def to[T](dflt: T)(implicit fjs: Reads[T]): T =
     { fjs.reads(js) match
-      { case (JsSuccess(jss, _)) => jss
-              case _ => dflt } }
+      { case (Some(jss)) => jss
+              case None  => dflt } }
 
     /** TO TEST
      * Convert JsValue to a custom type, specifying a mapping.
@@ -168,8 +168,8 @@ object JsonBasic
     { seq.foldLeft(List[T]())(
       { case (i,j) =>
         { fjs.reads(j) match
-          { case JsSuccess(jss, _) => succ(i,jss)
-            case _ => fail(i) } } } ) }
+          { case Some(jss) => succ(i,jss)
+            case None      => fail(i) } } } ) }
 
     /** MINIMALLY TESTED
      * Extract the keys from an object into a list of strings. Note
