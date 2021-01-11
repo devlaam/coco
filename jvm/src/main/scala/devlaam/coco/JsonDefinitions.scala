@@ -19,48 +19,51 @@
 
 package devlaam.coco
  
-import scala.collection.mutable
-import jawn.{ Parser, Facade, FContext }
+import org.typelevel.jawn.{ Parser, Facade, FContext }
 
-
-trait CocoFacade[J] extends Facade[J]
+trait CocoFacade[J] extends Facade.NoIndexFacade[J]
 { def jarray(vs: List[J]): J
   def jobject(vs: List[(String, J)]): J
+  def jcomment(key: String, text: String): Unit
+  
+  type NoIndexContext = FContext.NoIndexFContext[J]
 
-  def singleContext() = new FContext[J] 
+  def singleContext(): NoIndexContext = new NoIndexContext
   { var value: J = _
-    def add(s: CharSequence) {}
-    def add(v: J) { value = v }
-    def finish: J = value
+    def add(s: CharSequence): Unit = {}
+    def add(v: J): Unit =  { value = v }
+    def finish(): J = value
     def isObj: Boolean = false }
 
-  def arrayContext() = new FContext[J] 
-  { val vs = mutable.ListBuffer.empty[J]
-    def add(s: CharSequence) {}
-    def add(v: J) { vs += v }
-    def finish: J = jarray(vs.toList)
+  def arrayContext(): NoIndexContext = new NoIndexContext
+  { var vs: List[J] = Nil
+    def add(s: CharSequence) = {}
+    def add(v: J): Unit = { vs ::= v }
+    def finish(): J = jarray(vs.reverse)
     def isObj: Boolean = false }
 
-  def objectContext() = new FContext[J] 
+  def objectContext(): NoIndexContext = new NoIndexContext
   { var keyStr: String = null
     var comStr: String = null
-    var vs = mutable.ListBuffer.empty[(String,J)] 
-    override def key(s: CharSequence)     { keyStr = s.toString }
+    private var vs: List[(String,J)] = Nil 
+    override def key(s: CharSequence)     { keyStr = s.toString; if (comStr != null) { jcomment(keyStr,comStr); comStr = null } }
     override def comment(s: CharSequence) { comStr = s.toString  }
     def add(s: CharSequence) {}
-    def add(v: J) { if (keyStr != null) vs += keyStr -> v; keyStr = null }
-    def finish = jobject(vs.toList)
+    def add(v: J) { if (keyStr != null) vs ::= (keyStr,v); keyStr = null }
+    def finish() = jobject(vs.reverse)
     def isObj = true } }
 
 
 object CocoAst extends CocoFacade[JsValue] 
-{ def jnull()                               = JsNull
-  def jfalse()                              = JsBoolean(false) 
-  def jtrue()                               = JsBoolean(true) 
+{ def jnull                                 = JsNull
+  def jfalse                                = JsBoolean(false) 
+  def jtrue                                 = JsBoolean(true) 
   def jnum(s: CharSequence, d: Int, e: Int) = JsNumber(BigDecimal(s.toString))
   def jstring(s: CharSequence)              = JsString(s.toString)
   def jarray(vs: List[JsValue])             = JsArray(vs)
-  def jobject(vs: List[(String, JsValue)])  = JsObject(vs) }
+  def jobject(vs: List[(String, JsValue)])  = JsObject(vs) 
+  /* For now, we have no means to actually store the comments somewhere. */
+  def jcomment(key: String, text: String)   = { } }
 
 
 object Json

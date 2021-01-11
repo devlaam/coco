@@ -19,13 +19,10 @@
 
 package devlaam.coco
 
-import scala.util._
 import scala.concurrent._
-import scala.language.postfixOps
 import ExecutionContext.Implicits.global
 
 import JsonLib._
-import JsonBasic._
 
 /* This to make all operators available for future json objects
  * to define seamless operations. */
