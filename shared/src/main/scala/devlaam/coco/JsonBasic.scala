@@ -19,7 +19,6 @@
 
 package devlaam.coco
 
-import scala.language.postfixOps
 import scala.collection.immutable.HashSet
 
 
@@ -67,6 +66,11 @@ object JsonBasic
         case  JsBoolean(s)  => false
         case  _             => true } }
     def isFilled = !isEmpty
+    
+    /** Quick tests for simple values. */
+    def isNull  = js == JsNull
+    def isTrue  = js == JsBoolean(true)
+    def isFalse = js == JsBoolean(false)
 
     /** TO TEST
      *  Use this to select the first filled alternative in a row, like

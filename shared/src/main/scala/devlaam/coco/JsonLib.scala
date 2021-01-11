@@ -38,14 +38,27 @@ object JsonLib
   val `@{}` = JsFuture(Future(`!{}`))
   val `@[]` = JsFuture(Future(`![]`))
   val J0    = JsStack.nil
+  
+  val Jnull  = JsStack(JsNull)
+  val Jtrue  = JsStack(JsBoolean(true))
+  val Jfalse = JsStack(JsBoolean(false))
+  
+  //TODO:
+  // We need JsStack values: Jtrue, Jfalse, Jnull for they are often used.
+  // Should we change J0 in Jnil? (can be confusing if J0 means Jnull or Jnil otherwise (breaks stuff)
+  // Should we change JsStack in JsTree? A tree can be climbed, a stack is linear. (breaks a lot!)
+  // Repair JsStack comparison for equality. What should be equated? When are two jsstacks equal?
+  // Add test for JsNull in JsStack, something like. isNull (test if current atom is JsNull).
+  
+  
 
 
   /**
    * String values to recognized as 'true' or 'false'. Behaviour for strings
    * outside these values is function dependent.
    */
-  val trueVals  = List("true", "yes","on", "in","+","1")
-  val falseVals = List("false","no", "off","in","-","0")
+  val trueVals  = List("true",  "yes", "on",  "in",  "+", "1")
+  val falseVals = List("false", "no",  "off", "out", "-", "0")
 
   /**
    * Casts to JsValue(s). Needed to add values to the json tree. Use small j to
@@ -471,6 +484,7 @@ trait Writes[-A] { def writes(a: A): JsValue              }
 
 object JsonConversions
 {   
+  // TODO: NaN Values give and runtime exception. How should we handle these? Print NaN? But that has other problems.
   implicit object     ByteReads extends Reads[Byte]     { def reads(json: JsValue): Option[Byte]    = json match { case JsNumber(value)  => Some(value.byteValue);   case _ => None  } }
   implicit object     BoolReads extends Reads[Boolean]  { def reads(json: JsValue): Option[Boolean] = json match { case JsBoolean(value) => Some(value);             case _ => None  } }
   implicit object    ShortReads extends Reads[Short]    { def reads(json: JsValue): Option[Short]   = json match { case JsNumber(value)  => Some(value.shortValue);  case _ => None  } }
@@ -491,6 +505,7 @@ object JsonConversions
   implicit object  StringWrites extends Writes[String]  { def writes(value: String):  JsValue = JsString(value)  }
   implicit object JsValueWrites extends Writes[JsValue] { def writes(value: JsValue): JsValue = value            }
   
+  // TODO: This can be done shorter and recursively, see https://www.lihaoyi.com/post/ImplicitDesignPatternsinScala.html
   implicit object    ByteItrWrites extends Writes[Iterable[Byte]]       { def writes(value: Iterable[Byte]):    JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }
   implicit object    BoolItrWrites extends Writes[Iterable[Boolean]]    { def writes(value: Iterable[Boolean]): JsValue = JsArray((value.map(x => JsBoolean(x)).toSeq)) }
   implicit object   ShortItrWrites extends Writes[Iterable[Short]]      { def writes(value: Iterable[Short]):   JsValue = JsArray((value.map(x => JsNumber(x)).toSeq))  }

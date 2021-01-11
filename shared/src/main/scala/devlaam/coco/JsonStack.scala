@@ -1117,6 +1117,12 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
    */
   def |?> = isFilled
   def isFilled: Boolean = !isNil && !curr.head.isEmpty
+  
+    /** Quick tests for simple values. */
+  def isNull  = curr == Some(JsNull)
+  def isTrue  = curr == Some(JsBoolean(true))
+  def isFalse = curr == Some(JsBoolean(false))
+
 
   /** TO TEST
    *  Use this to select the first filled alternative in a row, like
