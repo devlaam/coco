@@ -128,7 +128,7 @@ object JsonBasic
      *   val s: String = jsValue |> "?"
      * Note: () are needed to be able to use postfix operators after this operator.
      */
-    def |>(): JsValue = js
+    def |> : JsValue = js
     def toJv: JsValue = js
 
     // We zouden het zo kunnen maken dat per default ook de eerste van een
@@ -160,9 +160,6 @@ object JsonBasic
      * This has been solved, json atoms (which are not valid json) are now without ""
      */
     
-    @deprecated("Use the toString of simpleString methode.","Cococ 0.6.0")
-    def toStr: String = js.simpleString
-
     def |:>  = js.simpleString
     def |::> = js.prettyString()
     def |::> (jf: JsFormat) = js.formatString(jf)
@@ -208,7 +205,7 @@ object JsonBasic
      *  json | "membs"  | 0 ||&>  gives  List("name : Jan","age : 23", "id : true")
      *
      */
-    def ||>(): List[JsValue] = js.toValList[JsValue]
+    def ||> : List[JsValue] = js.toValList[JsValue]
     def toValList[T](implicit fjs: Reads[T]): List[T] =
     { def succ(l:List[T],v:T) = l:+v
       def fail(l:List[T]) = l
@@ -674,7 +671,7 @@ object JsonBasic
      *   json | "membs"  | first |#>            gives  3
      *   json | "number" |#>                    gives  1  (note: NOT 2, see below)
      */
-    def |#> (): Int = js.size
+    def |#> : Int = js.size
     def size: Int =
     { js match
       { case JsObject(seq) => seq.size

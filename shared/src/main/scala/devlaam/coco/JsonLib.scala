@@ -69,7 +69,8 @@ object JsonLib
 
   def J(it: Array[JsStack])(implicit d: DummyImplicit)      = !JsArray(  it.filter(!_.isNil).map(_.curr.head).toSeq )
   def J(it: Iterable[JsStack])(implicit d: DummyImplicit)   = !JsArray(  it.filter(!_.isNil).map(_.curr.head).toSeq )
-  def J(it: Map[String,JsStack])(implicit d: DummyImplicit) = !JsObject( it.filter(!_._2.isNil).mapValues(_.curr.head).toSeq )
+  //def J(it: Map[String,JsStack])(implicit d: DummyImplicit) = !JsObject( it.filter(!_._2.isNil).mapValues(_.curr.head).toSeq )
+  def J(it: Map[String,JsStack])(implicit d: DummyImplicit) = !JsObject( it.filter(!_._2.isNil).map{ case (k,v) => (k,v.curr.head) }.toSeq )
 
   /**
    * Auxiliary function to collect the results of all futures.
@@ -217,13 +218,13 @@ object JsonLib
       else if ('a'<=c && c<='f') c.toInt - 'a'.toInt + 10
       else                       -1 }
   
-    def unicode(c: Char) 
+    def unicode(c: Char): Unit =  
     { lazy val hex = read(c) 
       if ( cum >= 0 && hex >= 0 )  cum = (cum << 4) | hex  else  cum = -1 
       if ( uni == 4 && cum >= 0 )  result.append(cum.toChar) 
       if ( uni >= 4 )              { uni = 0; cum = 0 } else uni += 1  }
       
-    def escaped(c: Char) 
+    def escaped(c: Char): Unit =  
     { esc = false 
       c match 
       { case '"'  => result.append('"')
@@ -238,7 +239,7 @@ object JsonLib
         /* illegal char after escape, ignore. */
         case _    => { } } }
     
-    def regular(c: Char) { c match 
+    def regular(c: Char): Unit = { c match 
     { case '\\'  => esc = true
       case char  => if (char >= ' ') result.append(char) } }
       
@@ -367,7 +368,7 @@ case class JsArray(value: Seq[JsValue]) extends JsValue
   { val vit = value.iterator
     buffer.append('[')
     while (vit.hasNext) 
-    { val subval = vit.next
+    { val subval = vit.next()
       buffer.extend('"',subval.dress) 
       subval.toSimple(buffer)
       buffer.extend('"',subval.dress).extend(',',vit.hasNext) }
@@ -382,7 +383,7 @@ case class JsArray(value: Seq[JsValue]) extends JsValue
       if (multiline) { if (jf.compact) buffer.append(jf.indentStr.drop(1)) else buffer.append('\n').append(indentExtStr) }
       else           { if (jf.spaced)  buffer.append(' ') }
       while (vit.hasNext) 
-      { val subval = vit.next
+      { val subval = vit.next()
         buffer.extend('"',subval.dress) 
         if (subval.toFormat(jf,indentExtStr,buffer).isEmpty) buffer.remove(1,subval.dress) else
         { buffer.extend('"',subval.dress).extend(',',vit.hasNext) 
@@ -411,7 +412,7 @@ case class JsObject(value: Seq[(String,JsValue)]) extends JsValue
   { val vit = value.iterator
     buffer.append('{')
     while (vit.hasNext) 
-    { val (key,subval) = vit.next
+    { val (key,subval) = vit.next()
       buffer.append('"').append(key).append('"').append(':').extend('"',subval.dress) 
       subval.toSimple(buffer)
       buffer.extend('"',subval.dress).extend(',',vit.hasNext) }
@@ -428,7 +429,7 @@ case class JsObject(value: Seq[(String,JsValue)]) extends JsValue
       if (multiline) { if (jf.compact) buffer.append(jf.indentStr.drop(1)) else buffer.append('\n').append(indentExtStr) }
       else           { buffer.extend(' ',jf.spaced) }
       while (vit.hasNext) 
-      { val (key,subval) = vit.next
+      { val (key,subval) = vit.next()
         val saveLen      = buffer.length
         buffer.append('"').append(key).append('"')
         buffer.extend(justifyStr.drop(key.length),jf.justify && multiline) 

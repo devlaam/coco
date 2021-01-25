@@ -1,17 +1,18 @@
-scalaVersion        :=   "2.13.4"
+//scalaVersion        :=   "2.13.4"
 //scalacOptions       ++=   Seq("-feature","-deprecation","-unchecked","-Ywarn-unused","-Xlint")
 //name                :=   "coco"
 //organization        :=   "devlaam"
 //version             :=   "0.6.14"
 
-EclipseKeys.useProjectId := true
+//EclipseKeys.useProjectId := true
 
 import sbtcrossproject.CrossPlugin.autoImport.{crossProject, CrossType}
 
 val sharedSettings = Seq(
   name                :=   "coco",
   organization        :=   "devlaam",
-  version             :=   "0.7.0",
+  version             :=   "0.7.4",
+  scalaVersion        :=   "2.13.4",
   //scalacOptions       ++=   Seq("-feature","-deprecation","-unchecked","-Ywarn-unused","-Xlint"),
   scalacOptions       ++=   Seq("-feature","-deprecation","-unchecked"),
   testFrameworks      +=    new TestFramework("utest.runner.Framework") )

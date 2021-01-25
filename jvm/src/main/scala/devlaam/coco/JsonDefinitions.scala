@@ -46,10 +46,10 @@ trait CocoFacade[J] extends Facade.NoIndexFacade[J]
   { var keyStr: String = null
     var comStr: String = null
     private var vs: List[(String,J)] = Nil 
-    override def key(s: CharSequence)     { keyStr = s.toString; if (comStr != null) { jcomment(keyStr,comStr); comStr = null } }
-    override def comment(s: CharSequence) { comStr = s.toString  }
-    def add(s: CharSequence) {}
-    def add(v: J) { if (keyStr != null) vs ::= (keyStr,v); keyStr = null }
+    override def key(s: CharSequence): Unit = { keyStr = s.toString; if (comStr != null) { jcomment(keyStr,comStr); comStr = null } }
+    override def comment(s: CharSequence): Unit = { comStr = s.toString  }
+    def add(s: CharSequence): Unit = {}
+    def add(v: J): Unit = { if (keyStr != null) vs ::= (keyStr,v); keyStr = null }
     def finish() = jobject(vs.reverse)
     def isObj = true } }
 

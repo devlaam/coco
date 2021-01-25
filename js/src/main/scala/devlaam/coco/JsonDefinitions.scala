@@ -38,7 +38,7 @@ object Json
     case value: Set[_]        => JsArray(value.toSeq map write)
     case value: Seq[_]        => JsArray(value map write)
     case value: Map[_,_]      => JsObject(value.toSeq map{ case(k,v) => (k.toString,write(v)) } )  
-    case value: js.Array[_]   => JsArray(value map write)
+    case value: js.Array[_]   => JsArray(value.toSeq map write)
     case value: js.Object     => JsObject(parseObject(value))
     /* Tests below are actually only sensible for write's on scala types */
     case value: Int           => JsNumber(value) 

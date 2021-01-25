@@ -241,10 +241,7 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
    * Print a straight forward value of this json.
    */
   override def toString(): String = simpleString
-   
-  @deprecated("This method will be removed", "Coco 0.6.0")
-  def toPretty()                  = prettyString()
-  
+     
   def |:>  = simpleString
   def |::> = prettyString()
   def |::> (jf: JsFormat) = formatString(jf)
@@ -288,10 +285,10 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
    * result in a nil. If the default is of the type JsValue or a primitive a cast is performed
    * to that type, should it fail the default is returned. Note: this also is about the first element
    */
-  def |>()   = move(-1)
-  def |>>()  = toJvl
-  def |@()   = toJvf
-  def |@>()  = toJvl.toJvf
+  def |>   = move(-1)
+  def |>>  = toJvl
+  def |@   = toJvf
+  def |@>  = toJvl.toJvf
 
   //Zouden we dit niet zo kunnen maken dat je dit |> gewoon kan weglaten? Dan zou
   // elk gebruik als parameter automatisch naar boven moeten fietsen. Dat lijkt
@@ -1168,8 +1165,6 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
    * as stringify.
    * This has been solved, json atoms (which are not valid json) are now without ""
    */
-   @deprecated("Use the toString or simpleString methode.","Cococ 0.6.0")
-  def toStr: String                     = inf(j => j.toStr,"")
 
   /** MINIMALLY TESTED
    * Convert JsValues to a list of a chosen type specifying a default value or List of JsValues, .
@@ -1189,7 +1184,7 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
    *
    *
    */
-  def ||>[T](): List[JsStack]                          = if (curr.isEmpty) Nil else curr.head.toValList[JsValue].map(pack(_))
+  def ||> : List[JsStack]                              = if (curr.isEmpty) Nil else curr.head.toValList[JsValue].map(pack(_))
   def toValList[T](implicit fjs: Reads[T]): List[T]    = inf(j => j.toValList(fjs),Nil)
 
   def ||>[T](dflt: T)(implicit fjs: Reads[T]): List[T]        = toValList[T](dflt)(fjs)
@@ -1211,7 +1206,7 @@ case class JsStack(private[coco] val curr: Option[JsValue], private[coco] val pr
   def |*>[T](f: (String,JsStack) => T): List[T]       = map(f)
   def map[T](f: (String,JsStack) => T): List[T]       = inf(j => j.map( Function.untupled((f tupled) compose pack) ),Nil)
 
-  def |#> (): Int                                     = size
+  def |#> : Int                                       = size
   def size: Int                                       = inf(j => j.size,0)
 
   def |#> (s: String): Int                            = size(s)

@@ -46,11 +46,6 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
   def setLength(jf: JsFuture): JsFuture = pack(jf, (js,jv) => js.setLength(jv))
 
   def length: Future[Int] = jsf.map(_.length)
-
-  @deprecated("This method will be removed", "Coco 0.6.0")
-  def toFString(): Future[String] = simpleString 
-  @deprecated("This method will be removed", "Coco 0.6.0")
-  def toPretty():  Future[String] = prettyString()
   
   def |:>  = simpleString
   def |::> = prettyString()
@@ -68,9 +63,9 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
 
   def toFuture: Future[JsStack] = jsf
 
-  def |>() = move(-1)
-  def |>>() = toJvl
-  def |~>() = toJvl.toFuture
+  def |> = move(-1)
+  def |>> = toJvl
+  def |~> = toJvl.toFuture
 
   def |> (dflt: JsStack)                                        = firstTo(dflt)
   def |>[T](dflt: JsValue): Future[JsValue]                     = lastTo(dflt)
@@ -251,9 +246,6 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
   def |?>(kvs: PairJx): Future[Boolean]     = hasPair(kvs)
   def hasPair(kvs: PairJx): Future[Boolean] = jsf.map(_.hasPair(kvs))
 
-  @deprecated("Use the toString of simpleString methode.","Cococ 0.6.0")
-  def toStr: Future[String]  = jsf.map(_.toStr)
-
   def |!- (b: Boolean): JsFuture   = inverse(b)
   def |!- (jsb: JsStack): JsFuture = inverse(jsb)
   def |!- (jfb: JsFuture): JsFuture = inverse(jfb)
@@ -262,7 +254,7 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
   def inverse(jsb: JsStack): JsFuture    = pack(_.inverse(jsb))
   def inverse(jsb: JsFuture): JsFuture    = pack(jsb, (js,jv) => js.inverse(jv))
 
-  def ||>[T](): Future[List[JsStack]]                          = jsf.map(_.||>())
+  def ||> : Future[List[JsStack]]                              = jsf.map(_.||>)
   def toValList[T](implicit fjs: Reads[T]): Future[List[T]]    = jsf.map(_.toValList(fjs))
 
   def ||>[T](dflt: T)(implicit fjs: Reads[T]): Future[List[T]]        = toValList[T](dflt)(fjs)
@@ -284,7 +276,7 @@ case class JsFuture(private[coco] val jsf: Future[JsStack])
   def |*>[T](f: (String,JsStack) => T): Future[List[T]]       = map(f)
   def map[T](f: (String,JsStack) => T): Future[List[T]]       = jsf.map(_.map(f))
 
-  def |#> (): Future[Int]                                     = size
+  def |#> : Future[Int]                                       = size
   def size: Future[Int]                                       = jsf.map(_.size)
 
 
